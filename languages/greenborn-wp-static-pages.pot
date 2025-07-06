@@ -1,0 +1,181 @@
+# Copyright (C) 2024 luciano.n.vega@gmail.com
+# This file is distributed under the GPL v3.
+msgid ""
+msgstr ""
+"Project-Id-Version: Greenborn WP Static Pages 0.1.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/greenborn-wp-static-pages\n"
+"POT-Creation-Date: 2024-01-01 00:00+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"PO-Revision-Date: 2024-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+
+#: greenborn-wp-static-pages.php:25
+msgid "Greenborn WP Static Pages"
+msgstr ""
+
+#: greenborn-wp-static-pages.php:26
+msgid "Plugin wordpress que se encarga de generar micrositio estático y optimizado buscando acelerar la carga y cacheado de recursos y elevar el nivel de seguridad al no exponer código ejecutable en backend."
+msgstr ""
+
+#: greenborn-wp-static-pages.php:30
+msgid "greenborn-wp-static-pages"
+msgstr ""
+
+#: greenborn-wp-static-pages.php:31
+msgid "/languages"
+msgstr ""
+
+#: greenborn-wp-static-pages.php:95
+msgid "Greenborn Static Pages"
+msgstr ""
+
+#: greenborn-wp-static-pages.php:96
+msgid "Static Pages"
+msgstr ""
+
+#: greenborn-wp-static-pages.php:108
+msgid "Acceso denegado"
+msgstr ""
+
+#: greenborn-wp-static-pages.php:113
+msgid "Verificación de seguridad fallida"
+msgstr ""
+
+#: greenborn-wp-static-pages.php:119
+msgid "Páginas estáticas generadas correctamente"
+msgstr ""
+
+#: greenborn-wp-static-pages.php:125
+msgid "Error al generar páginas estáticas: "
+msgstr ""
+
+#: greenborn-wp-static-pages.php:140
+msgid "Sitio Estático Generado"
+msgstr ""
+
+#: greenborn-wp-static-pages.php:145
+msgid "Este es el directorio de páginas estáticas generadas por Greenborn WP Static Pages."
+msgstr ""
+
+#: greenborn-wp-static-pages.php:146
+msgid "Las páginas se generan automáticamente desde WordPress para mejorar el rendimiento y la seguridad."
+msgstr ""
+
+#: admin/admin-page.php:8
+msgid "Generador de Páginas Estáticas"
+msgstr ""
+
+#: admin/admin-page.php:9
+msgid "Este plugin genera páginas HTML estáticas en el directorio <code>wp-static/</code> para mejorar el rendimiento y la seguridad de tu sitio."
+msgstr ""
+
+#: admin/admin-page.php:12
+msgid "Directorio estático:"
+msgstr ""
+
+#: admin/admin-page.php:17
+msgid "Generando páginas estáticas..."
+msgstr ""
+
+#: admin/admin-page.php:18
+msgid "Iniciando..."
+msgstr ""
+
+#: admin/admin-page.php:26
+msgid "Generar Páginas Estáticas"
+msgstr ""
+
+#: admin/admin-page.php:33
+msgid "Información del Plugin"
+msgstr ""
+
+#: admin/admin-page.php:36
+msgid "Versión"
+msgstr ""
+
+#: admin/admin-page.php:40
+msgid "Estado del directorio"
+msgstr ""
+
+#: admin/admin-page.php:42
+msgid "✓ Directorio creado"
+msgstr ""
+
+#: admin/admin-page.php:44
+msgid "✗ Directorio no existe"
+msgstr ""
+
+#: admin/admin-page.php:47
+msgid "Permisos de escritura"
+msgstr ""
+
+#: admin/admin-page.php:49
+msgid "✓ Escritura permitida"
+msgstr ""
+
+#: admin/admin-page.php:51
+msgid "✗ Sin permisos de escritura"
+msgstr ""
+
+#: admin/admin-page.php:67
+msgid "¡Éxito!"
+msgstr ""
+
+#: admin/admin-page.php:70
+msgid "Páginas generadas: "
+msgstr ""
+
+#: admin/admin-page.php:71
+msgid "Directorio: "
+msgstr ""
+
+#: admin/admin-page.php:74
+msgid "Error:"
+msgstr ""
+
+#: admin/admin-page.php:78
+msgid "Error: No se pudo completar la operación"
+msgstr ""
+
+#: includes/class-static-generator.php:35
+msgid "El directorio estático no es escribible: "
+msgstr ""
+
+#: includes/class-static-generator.php:45
+msgid "Error en página principal: "
+msgstr ""
+
+#: includes/class-static-generator.php:52
+msgid "Error en páginas de posts: "
+msgstr ""
+
+#: includes/class-static-generator.php:59
+msgid "Error en páginas de páginas: "
+msgstr ""
+
+#: includes/class-static-generator.php:66
+msgid "Error copiando recursos: "
+msgstr ""
+
+#: includes/class-static-generator.php:72
+msgid "Errores durante la generación: "
+msgstr ""
+
+#: includes/class-static-generator.php:89
+msgid "Error generando post "
+msgstr ""
+
+#: includes/class-static-generator.php:120
+msgid "Error generando página "
+msgstr ""
+
+#: includes/class-page-processor.php:35
+msgid "Error obteniendo contenido de: "
+msgstr ""
+
+#: includes/class-page-processor.php:95
+msgid "Este formulario está deshabilitado en la versión estática."
+msgstr "" 

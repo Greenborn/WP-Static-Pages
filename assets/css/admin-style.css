@@ -1,0 +1,159 @@
+/**
+ * Estilos para la interfaz de administración del plugin
+ */
+
+.greenborn-static-pages-wrap {
+    max-width: 800px;
+}
+
+.greenborn-static-pages-wrap .card {
+    margin-bottom: 20px;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+}
+
+.greenborn-static-pages-wrap .card h2 {
+    margin-top: 0;
+    color: #23282d;
+    font-size: 1.3em;
+    font-weight: 600;
+}
+
+.greenborn-static-pages-wrap .notice {
+    margin: 15px 0;
+    padding: 12px;
+    border-left: 4px solid #00a32a;
+    background: #f0f6fc;
+}
+
+.greenborn-static-pages-wrap .notice.notice-error {
+    border-left-color: #d63638;
+    background: #fcf0f1;
+}
+
+.greenborn-static-pages-wrap .notice.notice-warning {
+    border-left-color: #dba617;
+    background: #fcf9e8;
+}
+
+.greenborn-static-pages-wrap .notice.notice-info {
+    border-left-color: #72aee6;
+    background: #f0f6fc;
+}
+
+.greenborn-static-pages-wrap .button-primary {
+    background: #2271b1;
+    border-color: #2271b1;
+    color: #fff;
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.greenborn-static-pages-wrap .button-primary:hover {
+    background: #135e96;
+    border-color: #135e96;
+}
+
+.greenborn-static-pages-wrap .button-primary:disabled {
+    background: #a0a5aa;
+    border-color: #a0a5aa;
+    cursor: not-allowed;
+}
+
+.greenborn-static-pages-wrap .spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #2271b1;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.greenborn-static-pages-wrap .form-table th {
+    width: 200px;
+    padding: 15px 10px 15px 0;
+    font-weight: 600;
+    color: #23282d;
+}
+
+.greenborn-static-pages-wrap .form-table td {
+    padding: 15px 10px;
+}
+
+.greenborn-static-pages-wrap code {
+    background: #f6f7f7;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: Consolas, Monaco, monospace;
+    font-size: 13px;
+}
+
+.greenborn-static-pages-wrap .status-indicator {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.greenborn-static-pages-wrap .status-indicator.success {
+    background: #00a32a;
+}
+
+.greenborn-static-pages-wrap .status-indicator.error {
+    background: #d63638;
+}
+
+.greenborn-static-pages-wrap .progress-bar {
+    width: 100%;
+    height: 20px;
+    background: #f1f1f1;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.greenborn-static-pages-wrap .progress-bar-fill {
+    height: 100%;
+    background: #2271b1;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.greenborn-static-pages-wrap .file-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+    background: #f9f9f9;
+    border-radius: 3px;
+}
+
+.greenborn-static-pages-wrap .file-list ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.greenborn-static-pages-wrap .file-list li {
+    padding: 2px 0;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.greenborn-static-pages-wrap .file-list li:before {
+    content: "📄 ";
+    margin-right: 5px;
+} 
