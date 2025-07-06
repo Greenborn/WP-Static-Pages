@@ -91,6 +91,16 @@ El plugin extrae automáticamente todas las imágenes de posts y páginas y las 
 - **Formatos soportados**: JPG, JPEG, PNG, GIF, WebP, SVG
 - **URLs relativas y absolutas**: Convierte automáticamente URLs relativas a absolutas
 - **Centralización**: Todas las imágenes del sitio en un solo directorio
+- **Reemplazo automático de URLs**: Las URLs en el HTML se actualizan para usar rutas relativas al directorio `assets/`
+
+### Reemplazo Automático de URLs
+
+El plugin reemplaza automáticamente todas las URLs de imágenes en el contenido HTML generado:
+
+- **URLs relativas**: `assets/[hash].jpg` en lugar de rutas absolutas
+- **Compatibilidad**: Funciona con etiquetas `<img>`, CSS `background-image` y otros atributos `src`
+- **Mapeo inteligente**: Mantiene la relación entre URLs originales y archivos copiados
+- **Preservación**: Las URLs que no corresponden a imágenes copiadas se mantienen sin cambios
 
 ## Solución de Problemas
 

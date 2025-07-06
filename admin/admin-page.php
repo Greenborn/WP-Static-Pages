@@ -311,7 +311,7 @@ jQuery(document).ready(function($) {
                     // Mostrar información sobre imágenes copiadas
                     if (response.data.images_copied > 0) {
                         $('#item-' + currentItem.id + '-' + currentItem.type + ' .item-info').html(
-                            '<small>' + response.data.images_copied + ' imagen(es) copiada(s) a assets/</small>'
+                            '<small>' + response.data.images_copied + ' imagen(es) copiada(s) y URLs reemplazadas</small>'
                         );
                     }
                     

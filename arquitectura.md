@@ -88,6 +88,7 @@ greenborn-wp-static-pages/
 5. Se generan nombres únicos basados en hash MD5
 6. Se copian las imágenes al directorio assets/
 7. Se evitan duplicados automáticamente
+8. Se reemplazan las URLs en el contenido HTML con rutas relativas al directorio assets/
 ```
 
 ### 4. Gestión de Rutas y Permisos
@@ -149,6 +150,12 @@ $image_info = [
     'new_filename' => 'abc123def456.jpg',
     'assets_path' => '/wp-static/assets/abc123def456.jpg'
 ];
+
+// Mapeo de URLs para reemplazo
+$url_mapping = [
+    '/wp-content/uploads/imagen.jpg' => 'assets/abc123def456.jpg',
+    'https://ejemplo.com/imagen.png' => 'assets/def456ghi789.png'
+];
 ```
 
 #### 6.2 Logging y Monitoreo
@@ -170,6 +177,13 @@ $image_info = [
 - **Validación de formatos**: Solo formatos de imagen permitidos
 - **Verificación de URLs**: URLs internas vs externas
 - **Control de duplicados**: Evita copias innecesarias
+
+#### 7.3 Reemplazo de URLs de Imágenes
+- **Mapeo inteligente**: Relación entre URLs originales y archivos copiados
+- **Normalización de URLs**: Conversión de URLs absolutas a relativas
+- **Patrones de búsqueda**: Regex para etiquetas `<img>`, CSS `background-image` y atributos `src`
+- **Preservación de contenido**: URLs no mapeadas se mantienen sin cambios
+- **URLs relativas**: Todas las imágenes apuntan a `assets/[hash].[ext]`
 
 ### 8. Optimizaciones
 

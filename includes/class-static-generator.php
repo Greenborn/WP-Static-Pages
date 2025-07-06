@@ -11,25 +11,12 @@ if (!defined('ABSPATH')) {
 class GreenbornStaticGenerator {
     
     private $static_dir;
-    private $processor;
     
     public function __construct() {
         // Usar la función en lugar de la constante para asegurar que se obtiene la ruta correcta
         $this->static_dir = function_exists('greenborn_get_static_dir') ? 
             greenborn_get_static_dir() : 
             dirname(ABSPATH) . '/wp-static/';
-        // El processor se inicializará cuando sea necesario
-        $this->processor = null;
-    }
-    
-    /**
-     * Obtiene el processor de manera lazy
-     */
-    private function get_processor() {
-        if ($this->processor === null) {
-            $this->processor = new GreenbornPageProcessor();
-        }
-        return $this->processor;
     }
     
     /**
@@ -180,6 +167,12 @@ class GreenbornStaticGenerator {
                 $html_content = $this->get_page_content($url);
                 
                 if ($html_content) {
+                    // Reemplazar URLs de imágenes en el contenido HTML
+                    $html_content = $this->replace_image_urls_in_content($html_content, $copied_images);
+                    
+                    // Reemplazar URLs internas de WordPress con URLs estáticas
+                    $html_content = $this->replace_internal_urls($html_content);
+                    
                     $file_path = $this->get_static_file_path($url);
                     
                     // Crear directorio si no existe
@@ -190,7 +183,7 @@ class GreenbornStaticGenerator {
                     
                     file_put_contents($file_path, $html_content);
                     
-                    $this->log_message('Post procesado: ' . $post->post_title . ' (' . $item_id . ') - ' . count($copied_images) . ' imágenes copiadas');
+                    $this->log_message('Post procesado: ' . $post->post_title . ' (' . $item_id . ') - ' . count($copied_images) . ' imágenes copiadas, URLs de imágenes e internas reemplazadas');
                     
                     return array(
                         'success' => true,
@@ -215,6 +208,12 @@ class GreenbornStaticGenerator {
                 $html_content = $this->get_page_content($url);
                 
                 if ($html_content) {
+                    // Reemplazar URLs de imágenes en el contenido HTML
+                    $html_content = $this->replace_image_urls_in_content($html_content, $copied_images);
+                    
+                    // Reemplazar URLs internas de WordPress con URLs estáticas
+                    $html_content = $this->replace_internal_urls($html_content);
+                    
                     $file_path = $this->get_static_file_path($url);
                     
                     // Crear directorio si no existe
@@ -225,7 +224,7 @@ class GreenbornStaticGenerator {
                     
                     file_put_contents($file_path, $html_content);
                     
-                    $this->log_message('Página procesada: ' . $page->post_title . ' (' . $item_id . ') - ' . count($copied_images) . ' imágenes copiadas');
+                    $this->log_message('Página procesada: ' . $page->post_title . ' (' . $item_id . ') - ' . count($copied_images) . ' imágenes copiadas, URLs de imágenes e internas reemplazadas');
                     
                     return array(
                         'success' => true,
@@ -266,12 +265,14 @@ class GreenbornStaticGenerator {
         $parsed_url = parse_url($url);
         $path = isset($parsed_url['path']) ? $parsed_url['path'] : '/';
         
-        // Si la ruta termina en /, usar index.html
-        if ($path === '/' || substr($path, -1) === '/') {
-            $file_path = $this->static_dir . $path . 'index.html';
+        // Si la ruta es / o está vacía, usar index.html
+        if ($path === '/' || $path === '') {
+            $file_path = $this->static_dir . 'index.html';
         } else {
-            // Para URLs como /post-slug, crear /post-slug/index.html
-            $file_path = $this->static_dir . $path . '/index.html';
+            // Para URLs como /post-slug/, crear post-slug.html
+            // Remover la barra inicial y final
+            $clean_path = trim($path, '/');
+            $file_path = $this->static_dir . $clean_path . '.html';
         }
         
         return $file_path;
@@ -288,7 +289,10 @@ class GreenbornStaticGenerator {
             $html_content = $this->get_home_content();
             
             if ($html_content) {
-                // Guardar directamente el contenido sin procesar
+                // Reemplazar URLs internas de WordPress con URLs estáticas
+                $html_content = $this->replace_internal_urls($html_content);
+                
+                // Guardar el contenido procesado
                 $file_path = $this->static_dir . 'index.html';
                 $result = file_put_contents($file_path, $html_content);
                 
@@ -296,7 +300,7 @@ class GreenbornStaticGenerator {
                     throw new Exception('No se pudo escribir el archivo index.html');
                 }
                 
-                $this->log_message('Página principal generada correctamente: ' . $file_path . ' (' . $result . ' bytes)');
+                $this->log_message('Página principal generada correctamente: ' . $file_path . ' (' . $result . ' bytes) - URLs internas reemplazadas');
             } else {
                 throw new Exception('No se pudo obtener contenido del home');
             }
@@ -322,82 +326,6 @@ class GreenbornStaticGenerator {
         
         $this->log_message('Contenido del home obtenido: ' . strlen($content) . ' bytes');
         return $content;
-    }
-    
-
-    
-    /**
-     * Genera páginas para todos los posts
-     */
-    private function generate_posts_pages() {
-        $posts = get_posts(array(
-            'numberposts' => -1,
-            'post_status' => 'publish'
-        ));
-        
-        $count = 0;
-        
-        foreach ($posts as $post) {
-            try {
-                $post_url = get_permalink($post->ID);
-                $html_content = $this->get_processor()->get_page_content($post_url);
-                
-                if ($html_content) {
-                    $processed_content = $this->get_processor()->process_content($html_content, $post_url);
-                    $file_path = $this->get_static_file_path($post_url);
-                    
-                    // Crear directorio si no existe
-                    $dir = dirname($file_path);
-                    if (!is_dir($dir)) {
-                        wp_mkdir_p($dir);
-                    }
-                    
-                    file_put_contents($file_path, $processed_content);
-                    $count++;
-                }
-            } catch (Exception $e) {
-                error_log('Error generando post ' . $post->ID . ': ' . $e->getMessage());
-            }
-        }
-        
-        return $count;
-    }
-    
-    /**
-     * Genera páginas para todas las páginas
-     */
-    private function generate_pages_pages() {
-        $pages = get_pages(array(
-            'number' => -1,
-            'post_status' => 'publish'
-        ));
-        
-        $count = 0;
-        
-        foreach ($pages as $page) {
-            try {
-                $page_url = get_permalink($page->ID);
-                $html_content = $this->get_processor()->get_page_content($page_url);
-                
-                if ($html_content) {
-                    $processed_content = $this->get_processor()->process_content($html_content, $page_url);
-                    $file_path = $this->get_static_file_path($page_url);
-                    
-                    // Crear directorio si no existe
-                    $dir = dirname($file_path);
-                    if (!is_dir($dir)) {
-                        wp_mkdir_p($dir);
-                    }
-                    
-                    file_put_contents($file_path, $processed_content);
-                    $count++;
-                }
-            } catch (Exception $e) {
-                error_log('Error generando página ' . $page->ID . ': ' . $e->getMessage());
-            }
-        }
-        
-        return $count;
     }
     
     /**
@@ -544,8 +472,6 @@ class GreenbornStaticGenerator {
         
         return true;
     }
-    
-
     
     /**
      * Registra mensajes en el log
@@ -694,5 +620,346 @@ class GreenbornStaticGenerator {
         $server_path = ABSPATH . ltrim($relative_path, '/');
         
         return $server_path;
+    }
+    
+    /**
+     * Reemplaza las URLs de imágenes en el contenido HTML con URLs relativas del directorio assets
+     */
+    private function replace_image_urls_in_content($html_content, $copied_images) {
+        if (empty($copied_images)) {
+            return $html_content;
+        }
+        
+        // Crear un mapeo de URLs originales a nombres de archivo en assets
+        $url_mapping = array();
+        foreach ($copied_images as $image_info) {
+            $original_url = $image_info['original_url'];
+            $new_filename = $image_info['new_filename'];
+            
+            // Normalizar la URL original para el mapeo
+            $normalized_url = $this->normalize_image_url($original_url);
+            $url_mapping[$normalized_url] = 'assets/' . $new_filename;
+        }
+        
+        $this->log_message('Mapeo de URLs creado para ' . count($copied_images) . ' imágenes');
+        
+        // Reemplazar URLs en el contenido HTML
+        $modified_content = $html_content;
+        
+        // 1. Reemplazar en etiquetas <img> - patrón mejorado para manejar múltiples atributos
+        $modified_content = preg_replace_callback(
+            '/<img([^>]*?)src=["\']([^"\']+)["\']([^>]*?)>/i',
+            function($matches) use ($url_mapping) {
+                $before_src = $matches[1];
+                $original_url = $matches[2];
+                $after_src = $matches[3];
+                
+                $normalized_url = $this->normalize_image_url($original_url);
+                
+                if (isset($url_mapping[$normalized_url])) {
+                    $new_url = $url_mapping[$normalized_url];
+                    $this->log_message('Reemplazando <img>: ' . $original_url . ' -> ' . $new_url);
+                    return '<img' . $before_src . 'src="' . $new_url . '"' . $after_src . '>';
+                }
+                
+                return $matches[0]; // Mantener original si no se encuentra en el mapeo
+            },
+            $modified_content
+        );
+        
+        // 2. Reemplazar en CSS background-image
+        $modified_content = preg_replace_callback(
+            '/background-image:\s*url\(["\']?([^"\')\s]+)["\']?\)/i',
+            function($matches) use ($url_mapping) {
+                $original_url = $matches[1];
+                $normalized_url = $this->normalize_image_url($original_url);
+                
+                if (isset($url_mapping[$normalized_url])) {
+                    $new_url = $url_mapping[$normalized_url];
+                    $this->log_message('Reemplazando background-image: ' . $original_url . ' -> ' . $new_url);
+                    return 'background-image: url("' . $new_url . '")';
+                }
+                
+                return $matches[0]; // Mantener original si no se encuentra en el mapeo
+            },
+            $modified_content
+        );
+        
+        // 3. Reemplazar en otros atributos src (más específico para imágenes)
+        $modified_content = preg_replace_callback(
+            '/src=["\']([^"\']*\.(jpg|jpeg|png|gif|webp|svg))["\']/i',
+            function($matches) use ($url_mapping) {
+                $original_url = $matches[1];
+                $normalized_url = $this->normalize_image_url($original_url);
+                
+                if (isset($url_mapping[$normalized_url])) {
+                    $new_url = $url_mapping[$normalized_url];
+                    $this->log_message('Reemplazando src genérico: ' . $original_url . ' -> ' . $new_url);
+                    return 'src="' . $new_url . '"';
+                }
+                
+                return $matches[0]; // Mantener original si no se encuentra en el mapeo
+            },
+            $modified_content
+        );
+        
+        // 4. Reemplazar en data-src (para lazy loading)
+        $modified_content = preg_replace_callback(
+            '/data-src=["\']([^"\']*\.(jpg|jpeg|png|gif|webp|svg))["\']/i',
+            function($matches) use ($url_mapping) {
+                $original_url = $matches[1];
+                $normalized_url = $this->normalize_image_url($original_url);
+                
+                if (isset($url_mapping[$normalized_url])) {
+                    $new_url = $url_mapping[$normalized_url];
+                    $this->log_message('Reemplazando data-src: ' . $original_url . ' -> ' . $new_url);
+                    return 'data-src="' . $new_url . '"';
+                }
+                
+                return $matches[0]; // Mantener original si no se encuentra en el mapeo
+            },
+            $modified_content
+        );
+        
+        // 5. Reemplazar en data-lazy-src (para otros plugins de lazy loading)
+        $modified_content = preg_replace_callback(
+            '/data-lazy-src=["\']([^"\']*\.(jpg|jpeg|png|gif|webp|svg))["\']/i',
+            function($matches) use ($url_mapping) {
+                $original_url = $matches[1];
+                $normalized_url = $this->normalize_image_url($original_url);
+                
+                if (isset($url_mapping[$normalized_url])) {
+                    $new_url = $url_mapping[$normalized_url];
+                    $this->log_message('Reemplazando data-lazy-src: ' . $original_url . ' -> ' . $new_url);
+                    return 'data-lazy-src="' . $new_url . '"';
+                }
+                
+                return $matches[0]; // Mantener original si no se encuentra en el mapeo
+            },
+            $modified_content
+        );
+        
+        // 6. Reemplazar en URLs dentro de atributos data (para bloques dinámicos)
+        $modified_content = preg_replace_callback(
+            '/data-[^=]+=["\']([^"\']*\.(jpg|jpeg|png|gif|webp|svg))["\']/i',
+            function($matches) use ($url_mapping) {
+                $original_url = $matches[1];
+                $normalized_url = $this->normalize_image_url($original_url);
+                
+                if (isset($url_mapping[$normalized_url])) {
+                    $new_url = $url_mapping[$normalized_url];
+                    $this->log_message('Reemplazando data-attribute: ' . $original_url . ' -> ' . $new_url);
+                    return str_replace($original_url, $new_url, $matches[0]);
+                }
+                
+                return $matches[0]; // Mantener original si no se encuentra en el mapeo
+            },
+            $modified_content
+        );
+        
+        // 7. Reemplazar en URLs dentro de JSON o configuraciones (para bloques complejos)
+        $modified_content = preg_replace_callback(
+            '/"([^"]*\.(jpg|jpeg|png|gif|webp|svg))"/i',
+            function($matches) use ($url_mapping) {
+                $original_url = $matches[1];
+                $normalized_url = $this->normalize_image_url($original_url);
+                
+                if (isset($url_mapping[$normalized_url])) {
+                    $new_url = $url_mapping[$normalized_url];
+                    $this->log_message('Reemplazando JSON URL: ' . $original_url . ' -> ' . $new_url);
+                    return '"' . $new_url . '"';
+                }
+                
+                return $matches[0]; // Mantener original si no se encuentra en el mapeo
+            },
+            $modified_content
+        );
+        
+        $this->log_message('URLs de imágenes reemplazadas en el contenido HTML');
+        
+        return $modified_content;
+    }
+    
+    /**
+     * Normaliza una URL de imagen para el mapeo
+     */
+    private function normalize_image_url($url) {
+        // Si es una URL absoluta del sitio, convertirla a relativa
+        $home_url = home_url();
+        if (strpos($url, $home_url) === 0) {
+            $url = str_replace($home_url, '', $url);
+        }
+        
+        // Asegurar que comience con /
+        if (strpos($url, '/') !== 0) {
+            $url = '/' . $url;
+        }
+        
+        return $url;
+    }
+    
+    /**
+     * Reemplaza las URLs internas de WordPress con URLs estáticas
+     */
+    private function replace_internal_urls($html_content) {
+        $home_url = home_url();
+        $modified_content = $html_content;
+        
+        // Obtener todos los posts y páginas para crear el mapeo
+        $items = $this->get_all_items_list();
+        $url_mapping = array();
+        
+        foreach ($items as $item) {
+            $original_url = $item['url'];
+            $static_url = $this->get_static_url_from_wordpress_url($original_url);
+            $url_mapping[$original_url] = $static_url;
+        }
+        
+        // Agregar el home
+        $url_mapping[$home_url] = './index.html';
+        $url_mapping[$home_url . '/'] = './index.html';
+        
+        $this->log_message('Mapeo de URLs internas creado para ' . count($url_mapping) . ' elementos');
+        
+        // Reemplazar en enlaces <a href>
+        $modified_content = preg_replace_callback(
+            '/<a([^>]*?)href=["\']([^"\']+)["\']([^>]*?)>/i',
+            function($matches) use ($url_mapping, $home_url) {
+                $before_href = $matches[1];
+                $original_url = $matches[2];
+                $after_href = $matches[3];
+                
+                // Solo procesar URLs del mismo sitio
+                if (strpos($original_url, $home_url) === 0 || strpos($original_url, '/') === 0) {
+                    $normalized_url = $this->normalize_internal_url($original_url, $home_url);
+                    
+                    if (isset($url_mapping[$normalized_url])) {
+                        $new_url = $url_mapping[$normalized_url];
+                        $this->log_message('Reemplazando enlace interno: ' . $original_url . ' -> ' . $new_url);
+                        return '<a' . $before_href . 'href="' . $new_url . '"' . $after_href . '>';
+                    }
+                }
+                
+                return $matches[0]; // Mantener original si no se encuentra en el mapeo
+            },
+            $modified_content
+        );
+        
+        // Reemplazar en formularios action
+        $modified_content = preg_replace_callback(
+            '/<form([^>]*?)action=["\']([^"\']+)["\']([^>]*?)>/i',
+            function($matches) use ($url_mapping, $home_url) {
+                $before_action = $matches[1];
+                $original_url = $matches[2];
+                $after_action = $matches[3];
+                
+                // Solo procesar URLs del mismo sitio
+                if (strpos($original_url, $home_url) === 0 || strpos($original_url, '/') === 0) {
+                    $normalized_url = $this->normalize_internal_url($original_url, $home_url);
+                    
+                    if (isset($url_mapping[$normalized_url])) {
+                        $new_url = $url_mapping[$normalized_url];
+                        $this->log_message('Reemplazando form action: ' . $original_url . ' -> ' . $new_url);
+                        return '<form' . $before_action . 'action="' . $new_url . '"' . $after_action . '>';
+                    }
+                }
+                
+                return $matches[0]; // Mantener original si no se encuentra en el mapeo
+            },
+            $modified_content
+        );
+        
+        // Reemplazar en meta refresh
+        $modified_content = preg_replace_callback(
+            '/<meta([^>]*?)content=["\']([^"\']*?url=([^"\']+)[^"\']*?)["\']([^>]*?)>/i',
+            function($matches) use ($url_mapping, $home_url) {
+                $before_content = $matches[1];
+                $content = $matches[2];
+                $original_url = $matches[3];
+                $after_content = $matches[4];
+                
+                // Solo procesar URLs del mismo sitio
+                if (strpos($original_url, $home_url) === 0 || strpos($original_url, '/') === 0) {
+                    $normalized_url = $this->normalize_internal_url($original_url, $home_url);
+                    
+                    if (isset($url_mapping[$normalized_url])) {
+                        $new_url = $url_mapping[$normalized_url];
+                        $new_content = str_replace($original_url, $new_url, $content);
+                        $this->log_message('Reemplazando meta refresh: ' . $original_url . ' -> ' . $new_url);
+                        return '<meta' . $before_content . 'content="' . $new_content . '"' . $after_content . '>';
+                    }
+                }
+                
+                return $matches[0]; // Mantener original si no se encuentra en el mapeo
+            },
+            $modified_content
+        );
+        
+        // Reemplazar en JavaScript (window.location, etc.)
+        $modified_content = preg_replace_callback(
+            '/(window\.location|location\.href)\s*=\s*["\']([^"\']+)["\']/i',
+            function($matches) use ($url_mapping, $home_url) {
+                $js_var = $matches[1];
+                $original_url = $matches[2];
+                
+                // Solo procesar URLs del mismo sitio
+                if (strpos($original_url, $home_url) === 0 || strpos($original_url, '/') === 0) {
+                    $normalized_url = $this->normalize_internal_url($original_url, $home_url);
+                    
+                    if (isset($url_mapping[$normalized_url])) {
+                        $new_url = $url_mapping[$normalized_url];
+                        $this->log_message('Reemplazando JavaScript redirect: ' . $original_url . ' -> ' . $new_url);
+                        return $js_var . ' = "' . $new_url . '"';
+                    }
+                }
+                
+                return $matches[0]; // Mantener original si no se encuentra en el mapeo
+            },
+            $modified_content
+        );
+        
+        $this->log_message('URLs internas reemplazadas en el contenido HTML');
+        
+        return $modified_content;
+    }
+    
+    /**
+     * Normaliza una URL interna para el mapeo
+     */
+    private function normalize_internal_url($url, $home_url) {
+        // Si es una URL absoluta del sitio, convertirla a completa
+        if (strpos($url, $home_url) === 0) {
+            return $url;
+        }
+        
+        // Si es una URL relativa, convertirla a absoluta
+        if (strpos($url, '/') === 0) {
+            return $home_url . $url;
+        }
+        
+        // Si es una URL relativa sin /, agregar /
+        if (strpos($url, 'http') !== 0) {
+            return $home_url . '/' . $url;
+        }
+        
+        return $url;
+    }
+    
+    /**
+     * Obtiene la URL estática correspondiente a una URL de WordPress
+     */
+    private function get_static_url_from_wordpress_url($wordpress_url) {
+        $parsed_url = parse_url($wordpress_url);
+        $path = isset($parsed_url['path']) ? $parsed_url['path'] : '/';
+        
+        // Si la ruta es / o está vacía, usar index.html
+        if ($path === '/' || $path === '') {
+            return './index.html';
+        } else {
+            // Para URLs como /post-slug/, crear ./post-slug.html
+            // Remover la barra inicial y final
+            $clean_path = trim($path, '/');
+            return './' . $clean_path . '.html';
+        }
     }
 } 
