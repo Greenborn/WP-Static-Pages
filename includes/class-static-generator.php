@@ -173,6 +173,9 @@ class GreenbornStaticGenerator {
                     throw new Exception('Post no encontrado o no publicado');
                 }
                 
+                // Extraer y copiar imágenes del post
+                $copied_images = $this->extract_and_copy_images($item_id, $post->post_content);
+                
                 $url = get_permalink($item_id);
                 $html_content = $this->get_page_content($url);
                 
@@ -187,12 +190,13 @@ class GreenbornStaticGenerator {
                     
                     file_put_contents($file_path, $html_content);
                     
-                    $this->log_message('Post procesado: ' . $post->post_title . ' (' . $item_id . ')');
+                    $this->log_message('Post procesado: ' . $post->post_title . ' (' . $item_id . ') - ' . count($copied_images) . ' imágenes copiadas');
                     
                     return array(
                         'success' => true,
                         'file_path' => $file_path,
-                        'title' => $post->post_title
+                        'title' => $post->post_title,
+                        'images_copied' => count($copied_images)
                     );
                 } else {
                     throw new Exception('No se pudo obtener contenido del post');
@@ -204,6 +208,9 @@ class GreenbornStaticGenerator {
                     throw new Exception('Página no encontrada o no publicada');
                 }
                 
+                // Extraer y copiar imágenes de la página
+                $copied_images = $this->extract_and_copy_images($item_id, $page->post_content);
+                
                 $url = get_permalink($item_id);
                 $html_content = $this->get_page_content($url);
                 
@@ -218,12 +225,13 @@ class GreenbornStaticGenerator {
                     
                     file_put_contents($file_path, $html_content);
                     
-                    $this->log_message('Página procesada: ' . $page->post_title . ' (' . $item_id . ')');
+                    $this->log_message('Página procesada: ' . $page->post_title . ' (' . $item_id . ') - ' . count($copied_images) . ' imágenes copiadas');
                     
                     return array(
                         'success' => true,
                         'file_path' => $file_path,
-                        'title' => $page->post_title
+                        'title' => $page->post_title,
+                        'images_copied' => count($copied_images)
                     );
                 } else {
                     throw new Exception('No se pudo obtener contenido de la página');
@@ -231,7 +239,6 @@ class GreenbornStaticGenerator {
             } else {
                 throw new Exception('Tipo de elemento no válido: ' . $item_type);
             }
-            
         } catch (Exception $e) {
             $this->log_message('Error procesando elemento ' . $item_id . ' (' . $item_type . '): ' . $e->getMessage());
             throw $e;
@@ -549,5 +556,143 @@ class GreenbornStaticGenerator {
         $log_entry = "[{$timestamp}] {$message}" . PHP_EOL;
         
         file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
+    }
+    
+    /**
+     * Extrae y copia imágenes de un post o página al directorio assets
+     */
+    private function extract_and_copy_images($post_id, $post_content) {
+        $assets_dir = $this->static_dir . 'assets/';
+        $copied_images = array();
+        
+        // Buscar imágenes en el contenido usando regex
+        $image_patterns = array(
+            '/<img[^>]+src=["\']([^"\']+)["\'][^>]*>/i',
+            '/background-image:\s*url\(["\']?([^"\')\s]+)["\']?\)/i',
+            '/src=["\']([^"\']*\.(jpg|jpeg|png|gif|webp|svg))["\']/i'
+        );
+        
+        $found_images = array();
+        foreach ($image_patterns as $pattern) {
+            if (preg_match_all($pattern, $post_content, $matches)) {
+                foreach ($matches[1] as $image_url) {
+                    if (!empty($image_url) && !in_array($image_url, $found_images)) {
+                        $found_images[] = $image_url;
+                    }
+                }
+            }
+        }
+        
+        // Procesar cada imagen encontrada
+        foreach ($found_images as $image_url) {
+            try {
+                $result = $this->copy_image_to_assets($image_url, $assets_dir);
+                if ($result) {
+                    $copied_images[] = $result;
+                }
+            } catch (Exception $e) {
+                $this->log_message('Error copiando imagen: ' . $image_url . ' - ' . $e->getMessage());
+            }
+        }
+        
+        if (!empty($copied_images)) {
+            $this->log_message('Copiadas ' . count($copied_images) . ' imágenes para post ' . $post_id);
+        }
+        
+        return $copied_images;
+    }
+    
+    /**
+     * Copia una imagen específica al directorio assets
+     */
+    private function copy_image_to_assets($image_url, $assets_dir) {
+        // Convertir URL relativa a absoluta si es necesario
+        $absolute_url = $this->get_absolute_image_url($image_url);
+        
+        if (empty($absolute_url)) {
+            return false;
+        }
+        
+        // Obtener la ruta del archivo en el servidor
+        $server_path = $this->get_server_path_from_url($absolute_url);
+        
+        if (empty($server_path) || !file_exists($server_path)) {
+            return false;
+        }
+        
+        // Generar nombre único para el archivo
+        $file_info = pathinfo($server_path);
+        $extension = strtolower($file_info['extension'] ?? '');
+        
+        // Verificar que es una imagen válida
+        $valid_extensions = array('jpg', 'jpeg', 'png', 'gif', 'webp', 'svg');
+        if (!in_array($extension, $valid_extensions)) {
+            return false;
+        }
+        
+        // Crear nombre único basado en el hash del archivo
+        $file_hash = md5_file($server_path);
+        $new_filename = $file_hash . '.' . $extension;
+        $destination_path = $assets_dir . $new_filename;
+        
+        // Solo copiar si no existe ya (evitar duplicados)
+        if (!file_exists($destination_path)) {
+            $copied = @copy($server_path, $destination_path);
+            if ($copied) {
+                return array(
+                    'original_url' => $image_url,
+                    'original_path' => $server_path,
+                    'new_filename' => $new_filename,
+                    'assets_path' => $destination_path
+                );
+            }
+        } else {
+            // El archivo ya existe, retornar información
+            return array(
+                'original_url' => $image_url,
+                'original_path' => $server_path,
+                'new_filename' => $new_filename,
+                'assets_path' => $destination_path,
+                'already_exists' => true
+            );
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Convierte una URL de imagen a URL absoluta
+     */
+    private function get_absolute_image_url($image_url) {
+        // Si ya es una URL absoluta, retornarla
+        if (filter_var($image_url, FILTER_VALIDATE_URL)) {
+            return $image_url;
+        }
+        
+        // Si es una ruta relativa, convertirla a absoluta
+        if (strpos($image_url, '/') === 0) {
+            // Ruta absoluta desde el dominio
+            return home_url($image_url);
+        }
+        
+        // Ruta relativa desde el directorio actual
+        return home_url('/' . ltrim($image_url, '/'));
+    }
+    
+    /**
+     * Obtiene la ruta del servidor desde una URL
+     */
+    private function get_server_path_from_url($url) {
+        // Si es una URL externa, no podemos acceder al archivo
+        $home_url = home_url();
+        if (strpos($url, $home_url) !== 0) {
+            return false;
+        }
+        
+        // Convertir URL a ruta del servidor
+        $relative_path = str_replace($home_url, '', $url);
+        $server_path = ABSPATH . ltrim($relative_path, '/');
+        
+        return $server_path;
     }
 } 

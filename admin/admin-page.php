@@ -308,6 +308,13 @@ jQuery(document).ready(function($) {
                     
                     processedItems++;
                     
+                    // Mostrar información sobre imágenes copiadas
+                    if (response.data.images_copied > 0) {
+                        $('#item-' + currentItem.id + '-' + currentItem.type + ' .item-info').html(
+                            '<small>' + response.data.images_copied + ' imagen(es) copiada(s) a assets/</small>'
+                        );
+                    }
+                    
                     // Continuar con el siguiente elemento
                     setTimeout(function() {
                         processNextItem(button, originalText);
@@ -321,6 +328,11 @@ jQuery(document).ready(function($) {
                         .text('✗ Error: ' + response.data.message);
                     
                     processedItems++;
+                    
+                    // Mostrar información sobre error
+                    $('#item-' + currentItem.id + '-' + currentItem.type + ' .item-info').html(
+                        '<small class="error-text">' + response.data.message + '</small>'
+                    );
                     
                     // Continuar con el siguiente elemento
                     setTimeout(function() {
@@ -336,6 +348,11 @@ jQuery(document).ready(function($) {
                     .text('✗ Error de conexión');
                 
                 processedItems++;
+                
+                // Mostrar información sobre error
+                $('#item-' + currentItem.id + '-' + currentItem.type + ' .item-info').html(
+                    '<small class="error-text">Error de conexión</small>'
+                );
                 
                 // Continuar con el siguiente elemento
                 setTimeout(function() {

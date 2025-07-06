@@ -10,6 +10,7 @@ Plugin de WordPress para generar versiones estáticas de todas las páginas y po
 - **Manejo de permisos**: Verifica y ayuda a corregir permisos del directorio
 - **Interfaz intuitiva**: Panel de administración con estados visuales y confirmaciones
 - **Ruta inteligente**: Usa `get_home_path()` para obtener la ruta correcta del directorio de WordPress
+- **Copia automática de imágenes**: Extrae y copia todas las imágenes de posts y páginas al directorio `assets/`
 
 ## Instalación
 
@@ -71,12 +72,25 @@ location / {
 wp-static/
 ├── index.html              # Página principal
 ├── .htaccess              # Configuración Apache
-├── assets/                # Directorio para recursos estáticos (creado automáticamente)
+├── assets/                # Directorio centralizado con todas las imágenes del sitio
+│   ├── [hash1].jpg        # Imágenes extraídas de posts y páginas
+│   ├── [hash2].png        # Nombres únicos basados en hash MD5
+│   └── [hash3].gif        # Evita duplicados automáticamente
 ├── post-slug/
 │   └── index.html         # Post individual
 └── page-slug/
     └── index.html         # Página individual
 ```
+
+### Gestión de Imágenes
+
+El plugin extrae automáticamente todas las imágenes de posts y páginas y las copia al directorio `assets/`:
+
+- **Detección automática**: Busca imágenes en etiquetas `<img>`, `background-image` y atributos `src`
+- **Nombres únicos**: Usa hash MD5 del archivo para evitar duplicados
+- **Formatos soportados**: JPG, JPEG, PNG, GIF, WebP, SVG
+- **URLs relativas y absolutas**: Convierte automáticamente URLs relativas a absolutas
+- **Centralización**: Todas las imágenes del sitio en un solo directorio
 
 ## Solución de Problemas
 
