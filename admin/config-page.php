@@ -63,7 +63,17 @@ $static_dir = greenborn_config_get_static_dir();
                     <?php if (file_exists($static_dir . 'index.html')): ?>
                         <span class="status-indicator success"></span>✓ Archivo creado
                     <?php else: ?>
-                        <span class="status-indicator error"></span>✗ Archivo no existe
+                        <span class="status-indicator pending"></span>○ No creado
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">Directorio assets</th>
+                <td>
+                    <?php if (file_exists($static_dir . 'assets/')): ?>
+                        <span class="status-indicator success"></span>✓ Directorio creado
+                    <?php else: ?>
+                        <span class="status-indicator pending"></span>○ No creado
                     <?php endif; ?>
                 </td>
             </tr>

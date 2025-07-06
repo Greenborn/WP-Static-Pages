@@ -64,6 +64,16 @@ class GreenbornStaticGenerator {
             }
         }
         
+        // Crear subdirectorio assets si no existe
+        $assets_dir = $this->static_dir . 'assets/';
+        if (!is_dir($assets_dir)) {
+            $assets_created = @wp_mkdir_p($assets_dir);
+            if (!$assets_created) {
+                throw new Exception('No se pudo crear el subdirectorio assets: ' . $assets_dir);
+            }
+            $this->log_message('Subdirectorio assets creado: ' . $assets_dir);
+        }
+        
         // Vaciar el directorio antes de comenzar
         $this->clean_static_directory();
         
@@ -74,6 +84,7 @@ class GreenbornStaticGenerator {
         
         return array(
             'static_dir' => $this->static_dir,
+            'assets_dir' => $assets_dir,
             'home_generated' => true
         );
     }
@@ -96,6 +107,13 @@ class GreenbornStaticGenerator {
         foreach ($files as $fileinfo) {
             $todo = ($fileinfo->isDir() ? 'rmdir' : 'unlink');
             @$todo($fileinfo->getRealPath());
+        }
+        
+        // Recrear el directorio assets después de la limpieza
+        $assets_dir = $this->static_dir . 'assets/';
+        if (!is_dir($assets_dir)) {
+            @wp_mkdir_p($assets_dir);
+            $this->log_message('Directorio assets recreado después de la limpieza');
         }
         
         $this->log_message('Directorio estático limpiado correctamente');

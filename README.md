@@ -71,11 +71,11 @@ location / {
 wp-static/
 ├── index.html              # Página principal
 ├── .htaccess              # Configuración Apache
+├── assets/                # Directorio para recursos estáticos (creado automáticamente)
 ├── post-slug/
 │   └── index.html         # Post individual
-├── page-slug/
-│   └── index.html         # Página individual
-└── assets/                # Recursos estáticos (si se copian)
+└── page-slug/
+    └── index.html         # Página individual
 ```
 
 ## Solución de Problemas
