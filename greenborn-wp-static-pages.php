@@ -24,7 +24,27 @@ define('GREENBORN_STATIC_PLUGIN_VERSION', '0.1.0');
 define('GREENBORN_STATIC_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('GREENBORN_STATIC_PLUGIN_PATH', plugin_dir_path(__FILE__));
 define('GREENBORN_STATIC_PLUGIN_BASENAME', plugin_basename(__FILE__));
-define('GREENBORN_STATIC_DIR', ABSPATH . 'wp-static/');
+
+// Definir la ruta del directorio estático usando get_home_path() que es más confiable
+// que dirname(ABSPATH) para obtener la ruta real del directorio de WordPress
+function greenborn_get_static_dir() {
+    if (!function_exists('get_home_path')) {
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+    }
+    $home_path = get_home_path();
+    if (empty($home_path)) {
+        // Fallback a dirname(ABSPATH) si get_home_path() no funciona
+        $home_path = dirname(ABSPATH) . '/';
+    }
+    return $home_path . 'wp-static/';
+}
+
+// Definir la constante después de que WordPress esté cargado
+add_action('init', function() {
+    if (!defined('GREENBORN_STATIC_DIR')) {
+        define('GREENBORN_STATIC_DIR', greenborn_get_static_dir());
+    }
+});
 
 // Clase principal del plugin
 class GreenbornWPStaticPages {
@@ -33,6 +53,9 @@ class GreenbornWPStaticPages {
         add_action('init', array($this, 'init'));
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('wp_ajax_generate_static_pages', array($this, 'generate_static_pages'));
+        add_action('wp_ajax_get_items_list', array($this, 'get_items_list'));
+        add_action('wp_ajax_process_single_item', array($this, 'process_single_item'));
+        add_action('wp_ajax_fix_static_directory', array($this, 'fix_static_directory'));
         register_activation_hook(__FILE__, array($this, 'activate'));
         register_deactivation_hook(__FILE__, array($this, 'deactivate'));
     }
@@ -40,25 +63,18 @@ class GreenbornWPStaticPages {
     public function init() {
         // Inicialización del plugin
         load_plugin_textdomain('greenborn-wp-static-pages', false, dirname(plugin_basename(__FILE__)) . '/languages');
+        
+        // Cargar archivos adicionales
+        require_once GREENBORN_STATIC_PLUGIN_PATH . 'includes/class-static-generator.php';
+        require_once GREENBORN_STATIC_PLUGIN_PATH . 'includes/class-page-processor.php';
     }
     
     public function activate() {
-        // Crear directorio estático si no existe
-        if (!file_exists(GREENBORN_STATIC_DIR)) {
-            wp_mkdir_p(GREENBORN_STATIC_DIR);
-            
-            // Crear archivo .htaccess para el directorio estático
-            $htaccess_content = "Options -Indexes\n";
-            $htaccess_content .= "RewriteEngine On\n";
-            $htaccess_content .= "RewriteCond %{REQUEST_FILENAME} !-f\n";
-            $htaccess_content .= "RewriteCond %{REQUEST_FILENAME} !-d\n";
-            $htaccess_content .= "RewriteRule . /index.html [L]\n";
-            
-            file_put_contents(GREENBORN_STATIC_DIR . '.htaccess', $htaccess_content);
+        // Solo crear el directorio básico si no existe
+        $static_dir = greenborn_get_static_dir();
+        if (!file_exists($static_dir)) {
+            @wp_mkdir_p($static_dir);
         }
-        
-        // Crear archivo index.html básico
-        $this->create_basic_index();
     }
     
     public function deactivate() {
@@ -131,52 +147,146 @@ class GreenbornWPStaticPages {
         }
         
         try {
+            // Solo generar el directorio y archivos básicos
             $generator = new GreenbornStaticGenerator();
-            $result = $generator->generate_all_pages();
+            $result = $generator->prepare_static_directory();
             
             wp_send_json_success(array(
-                'message' => 'Páginas estáticas generadas correctamente',
-                'pages_generated' => $result['pages_generated'],
-                'static_dir' => GREENBORN_STATIC_DIR
+                'message' => 'Directorio preparado correctamente',
+                'static_dir' => greenborn_get_static_dir(),
+                'next_step' => 'get_items_list'
             ));
             
         } catch (Exception $e) {
             wp_send_json_error(array(
-                'message' => 'Error al generar páginas estáticas: ' . $e->getMessage()
+                'message' => 'Error preparando directorio: ' . $e->getMessage()
             ));
         }
     }
     
-    private function create_basic_index() {
-        $index_content = '<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sitio Estático Generado</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        .container { max-width: 800px; margin: 0 auto; }
-        h1 { color: #333; }
-        p { line-height: 1.6; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Sitio Estático Generado</h1>
-        <p>Este es el directorio de páginas estáticas generadas por Greenborn WP Static Pages.</p>
-        <p>Las páginas se generan automáticamente desde WordPress para mejorar el rendimiento y la seguridad.</p>
-    </div>
-</body>
-</html>';
+    public function get_items_list() {
+        // Verificar permisos
+        if (!current_user_can('manage_options')) {
+            wp_die('Acceso denegado');
+        }
         
-        file_put_contents(GREENBORN_STATIC_DIR . 'index.html', $index_content);
+        // Verificar nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'greenborn_static_generation')) {
+            wp_die('Verificación de seguridad fallida');
+        }
+        
+        try {
+            $generator = new GreenbornStaticGenerator();
+            $items = $generator->get_all_items_list();
+            
+            wp_send_json_success(array(
+                'items' => $items,
+                'total_items' => count($items),
+                'message' => 'Lista de elementos obtenida correctamente'
+            ));
+            
+        } catch (Exception $e) {
+            wp_send_json_error(array(
+                'message' => 'Error obteniendo lista de elementos: ' . $e->getMessage()
+            ));
+        }
+    }
+    
+    public function process_single_item() {
+        // Verificar permisos
+        if (!current_user_can('manage_options')) {
+            wp_die('Acceso denegado');
+        }
+        
+        // Verificar nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'greenborn_static_generation')) {
+            wp_die('Verificación de seguridad fallida');
+        }
+        
+        try {
+            $item_id = intval($_POST['item_id']);
+            $item_type = sanitize_text_field($_POST['item_type']);
+            
+            $generator = new GreenbornStaticGenerator();
+            $result = $generator->process_single_item($item_id, $item_type);
+            
+            wp_send_json_success(array(
+                'item_id' => $item_id,
+                'item_type' => $item_type,
+                'result' => $result,
+                'message' => 'Elemento procesado correctamente'
+            ));
+            
+        } catch (Exception $e) {
+            wp_send_json_error(array(
+                'message' => 'Error procesando elemento: ' . $e->getMessage(),
+                'item_id' => $item_id,
+                'item_type' => $item_type
+            ));
+        }
+    }
+    
+    public function fix_static_directory() {
+        // Verificar permisos
+        if (!current_user_can('manage_options')) {
+            wp_die('Acceso denegado');
+        }
+        
+        // Verificar nonce
+        if (!wp_verify_nonce($_POST['nonce'], 'greenborn_static_generation')) {
+            wp_die('Verificación de seguridad fallida');
+        }
+        
+        try {
+            $static_dir = greenborn_get_static_dir();
+            
+            // Intentar crear el directorio
+            if (!file_exists($static_dir)) {
+                $created = @wp_mkdir_p($static_dir);
+                if (!$created) {
+                    throw new Exception('No se pudo crear el directorio: ' . $static_dir);
+                }
+            }
+            
+            // Verificar permisos y propietario
+            if (!is_writable($static_dir)) {
+                $current_perms = substr(sprintf('%o', fileperms($static_dir)), -4);
+                $owner = function_exists('posix_getpwuid') ? 
+                    (posix_getpwuid(fileowner($static_dir))['name'] ?? 'unknown') : 
+                    'unknown';
+                $current_user = function_exists('posix_getpwuid') ? 
+                    (posix_getpwuid(posix_geteuid())['name'] ?? 'unknown') : 
+                    'unknown';
+                
+                // Intentar cambiar permisos automáticamente
+                $chmod_result = @chmod($static_dir, 0755);
+                
+                if (!$chmod_result || !is_writable($static_dir)) {
+                    throw new Exception(
+                        'El directorio fue creado pero no es escribible. ' .
+                        'Permisos: ' . $current_perms . ', Propietario: ' . $owner . ', Usuario actual: ' . $current_user . '. ' .
+                        'Ejecuta manualmente: chmod 755 ' . $static_dir . ' && chown www-data:www-data ' . $static_dir . 
+                        ' (o el usuario de tu servidor web)'
+                    );
+                }
+            }
+            
+            wp_send_json_success(array(
+                'message' => 'Directorio corregido correctamente',
+                'static_dir' => $static_dir,
+                'permissions' => substr(sprintf('%o', fileperms($static_dir)), -4),
+                'owner' => function_exists('posix_getpwuid') ? 
+                    (posix_getpwuid(fileowner($static_dir))['name'] ?? 'unknown') : 
+                    'unknown'
+            ));
+            
+        } catch (Exception $e) {
+            wp_send_json_error(array(
+                'message' => 'Error corrigiendo directorio: ' . $e->getMessage()
+            ));
+        }
     }
 }
 
 // Inicializar el plugin
 new GreenbornWPStaticPages();
-
-// Incluir archivos adicionales
-require_once GREENBORN_STATIC_PLUGIN_PATH . 'includes/class-static-generator.php';
-require_once GREENBORN_STATIC_PLUGIN_PATH . 'includes/class-page-processor.php'; 

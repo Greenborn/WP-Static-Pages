@@ -15,7 +15,7 @@ class GreenbornPageProcessor {
     
     public function __construct() {
         $this->site_url = home_url('/');
-        $this->static_url = str_replace(ABSPATH, '', GREENBORN_STATIC_DIR);
+        $this->static_url = 'wp-static/';
     }
     
     /**

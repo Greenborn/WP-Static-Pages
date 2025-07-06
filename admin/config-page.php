@@ -3,6 +3,15 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+
+// Función helper para obtener la ruta del directorio estático
+function greenborn_config_get_static_dir() {
+    return function_exists('greenborn_get_static_dir') ? 
+        greenborn_get_static_dir() : 
+        dirname(ABSPATH) . '/wp-static/';
+}
+
+$static_dir = greenborn_config_get_static_dir();
 ?>
 
 <div class="wrap greenborn-static-pages-wrap">
@@ -13,7 +22,7 @@ if (!defined('ABSPATH')) {
         <p>El plugin genera páginas estáticas en el directorio <code>wp-static/</code> que debe configurarse como root del dominio para su correcto funcionamiento.</p>
         
         <div class="notice notice-info">
-            <p><strong>Directorio estático actual:</strong> <code><?php echo esc_html(GREENBORN_STATIC_DIR); ?></code></p>
+            <p><strong>Directorio estático actual:</strong> <code><?php echo esc_html($static_dir); ?></code></p>
         </div>
         
         <h3>Estado del Directorio</h3>
@@ -21,7 +30,7 @@ if (!defined('ABSPATH')) {
             <tr>
                 <th scope="row">Existencia del directorio</th>
                 <td>
-                    <?php if (file_exists(GREENBORN_STATIC_DIR)): ?>
+                    <?php if (file_exists($static_dir)): ?>
                         <span class="status-indicator success"></span>✓ Directorio creado
                     <?php else: ?>
                         <span class="status-indicator error"></span>✗ Directorio no existe
@@ -31,7 +40,7 @@ if (!defined('ABSPATH')) {
             <tr>
                 <th scope="row">Permisos de escritura</th>
                 <td>
-                    <?php if (is_writable(GREENBORN_STATIC_DIR)): ?>
+                    <?php if (is_writable($static_dir)): ?>
                         <span class="status-indicator success"></span>✓ Escritura permitida
                     <?php else: ?>
                         <span class="status-indicator error"></span>✗ Sin permisos de escritura
@@ -41,7 +50,7 @@ if (!defined('ABSPATH')) {
             <tr>
                 <th scope="row">Archivo .htaccess</th>
                 <td>
-                    <?php if (file_exists(GREENBORN_STATIC_DIR . '.htaccess')): ?>
+                    <?php if (file_exists($static_dir . '.htaccess')): ?>
                         <span class="status-indicator success"></span>✓ Archivo creado
                     <?php else: ?>
                         <span class="status-indicator error"></span>✗ Archivo no existe
@@ -51,7 +60,7 @@ if (!defined('ABSPATH')) {
             <tr>
                 <th scope="row">Archivo index.html</th>
                 <td>
-                    <?php if (file_exists(GREENBORN_STATIC_DIR . 'index.html')): ?>
+                    <?php if (file_exists($static_dir . 'index.html')): ?>
                         <span class="status-indicator success"></span>✓ Archivo creado
                     <?php else: ?>
                         <span class="status-indicator error"></span>✗ Archivo no existe

@@ -28,7 +28,16 @@ if (!defined('ABSPATH')) {
         <ol>
             <li>Ve a <strong>Static Pages > Generar Páginas</strong> en el menú de administración</li>
             <li>Haz clic en <strong>"Generar Páginas Estáticas"</strong></li>
-            <li>Espera a que se complete el proceso</li>
+            <li>Confirma que entiendes que el directorio será limpiado completamente</li>
+            <li>El proceso seguirá estos pasos automáticamente:
+                <ul>
+                    <li><strong>Paso 1:</strong> Limpiar el directorio estático (eliminar archivos existentes)</li>
+                    <li><strong>Paso 2:</strong> Preparar directorio y generar página principal</li>
+                    <li><strong>Paso 3:</strong> Obtener lista de todos los posts y páginas</li>
+                    <li><strong>Paso 4:</strong> Mostrar listado de elementos a procesar</li>
+                    <li><strong>Paso 5:</strong> Procesar cada elemento individualmente con progreso en tiempo real</li>
+                </ul>
+            </li>
             <li>Verifica que se hayan generado los archivos en <code>wp-static/</code></li>
         </ol>
         
@@ -49,11 +58,39 @@ if (!defined('ABSPATH')) {
     </div>
     
     <div class="card">
+        <h2>📁 Ubicación del Directorio Estático</h2>
+        <p>El plugin crea automáticamente un directorio <code>wp-static/</code> en la raíz de tu instalación de WordPress.</p>
+        
+        <h3>¿Cómo se determina la ruta?</h3>
+        <p>El plugin usa <code>get_home_path()</code>, una función nativa de WordPress que es más confiable que <code>dirname(ABSPATH)</code> para obtener la ruta real del directorio de WordPress. Esto asegura que funcione correctamente en diferentes configuraciones de servidor.</p>
+        
+        <h3>Ubicaciones típicas:</h3>
+        <ul>
+            <li><strong>Servidor Linux:</strong> <code>/var/www/html/wp-static/</code></li>
+            <li><strong>XAMPP Windows:</strong> <code>C:\xampp\htdocs\wp-static\</code></li>
+            <li><strong>MAMP Mac:</strong> <code>/Applications/MAMP/htdocs/wp-static/</code></li>
+            <li><strong>Servidor compartido:</strong> <code>/home/usuario/public_html/wp-static/</code></li>
+        </ul>
+        
+        <h3>Verificación de ruta:</h3>
+        <p>Si tienes problemas con la ruta del directorio, verifica:</p>
+        <ol>
+            <li>Que WordPress esté correctamente instalado</li>
+            <li>Que el archivo <code>wp-config.php</code> esté en la ubicación correcta</li>
+            <li>Que las constantes <code>ABSPATH</code> y <code>WP_HOME</code> estén bien definidas</li>
+        </ol>
+    </div>
+    
+    <div class="card">
         <h2>Estructura del Directorio Estático</h2>
         <p>El plugin crea la siguiente estructura en el directorio <code>wp-static/</code>:</p>
         
         <pre><code>wp-static/
 ├── index.html                 # Página principal
+├── post-slug/
+│   └── index.html            # Páginas individuales de posts
+├── page-slug/
+│   └── index.html            # Páginas individuales de páginas
 ├── .htaccess                  # Configuración de Apache
 ├── wp-content/
 │   ├── uploads/              # Imágenes y archivos subidos
@@ -64,10 +101,12 @@ if (!defined('ABSPATH')) {
         <h3>Archivos generados:</h3>
         <ul>
             <li><strong>index.html:</strong> Página principal del sitio (versión estática del home actual)</li>
-            <li><strong>página.html:</strong> Cada página publicada se convierte en un archivo HTML</li>
-            <li><strong>post.html:</strong> Cada post publicado se convierte en un archivo HTML</li>
+            <li><strong>post-slug/index.html:</strong> Páginas individuales de cada post</li>
+            <li><strong>page-slug/index.html:</strong> Páginas individuales de cada página</li>
             <li><strong>.htaccess:</strong> Configuración básica para Apache</li>
         </ul>
+        
+        <p><em>Cada post y página se genera como un archivo index.html en su propio directorio para mantener URLs limpias.</em></p>
         
         <h3>Generación del Home:</h3>
         <p>El plugin genera una copia exacta del contenido del home:</p>

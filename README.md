@@ -1,111 +1,122 @@
 # Greenborn WP Static Pages
 
-Plugin de WordPress que genera automáticamente páginas HTML estáticas para mejorar el rendimiento y la seguridad de tu sitio.
+Plugin de WordPress para generar versiones estáticas de todas las páginas y posts del sitio, mejorando significativamente la velocidad de carga, cacheo y seguridad al no exponer código ejecutable del backend.
 
 ## Características
 
-- ✅ Generación automática de páginas estáticas HTML
-- ✅ Copia exacta del contenido del home (petición GET directa)
-- ✅ Sin procesamiento ni optimización del HTML
-- ✅ Copia automática de recursos estáticos
-- ✅ Interfaz de administración simple
-- ✅ Compatibilidad con la última versión de WordPress
+- **Generación completa**: Crea versiones estáticas de todos los posts y páginas publicadas
+- **Procesamiento individual**: Procesa cada elemento uno a uno con progreso visual en tiempo real
+- **Limpieza automática**: Limpia completamente el directorio antes de generar contenido nuevo
+- **Manejo de permisos**: Verifica y ayuda a corregir permisos del directorio
+- **Interfaz intuitiva**: Panel de administración con estados visuales y confirmaciones
+- **Ruta inteligente**: Usa `get_home_path()` para obtener la ruta correcta del directorio de WordPress
 
 ## Instalación
 
-1. **Subir el plugin**: Copia la carpeta `greenborn-wp-static-pages` a `/wp-content/plugins/`
-2. **Activar**: Ve a Plugins > Plugins instalados y activa "Greenborn WP Static Pages"
-3. **Configurar**: Ve a Ajustes > Static Pages para generar las páginas estáticas
+1. Sube el plugin a `/wp-content/plugins/greenborn-wp-static-pages/`
+2. Activa el plugin desde el panel de administración
+3. Ve a **Static Pages > Generar Páginas** para comenzar
 
-## Uso
+## Configuración
 
-### Generación de páginas estáticas
+### Directorio Estático
 
-1. Ve a **Static Pages > Generar Páginas** en el menú de administración
-2. Haz clic en **"Generar Páginas Estáticas"**
-3. El plugin generará automáticamente:
-   - Página principal (`index.html`) - copia exacta del home
-   - Todas las páginas publicadas
-   - Todos los posts publicados
-   - Recursos estáticos (CSS, JS, imágenes)
+El plugin crea automáticamente un directorio `wp-static/` en la raíz de tu instalación de WordPress. La ruta se determina usando `get_home_path()`, que es más confiable que `dirname(ABSPATH)` para obtener la ruta real del directorio de WordPress.
 
-### Directorio generado
+**Ubicación típica:**
+- `/var/www/html/wp-static/` (servidor Linux)
+- `C:\xampp\htdocs\wp-static\` (XAMPP Windows)
+- `/Applications/MAMP/htdocs/wp-static/` (MAMP Mac)
 
-El plugin crea el directorio `wp-static/` en la raíz de WordPress con la siguiente estructura:
+### Configuración del Servidor Web
 
-```
-wp-static/
-├── index.html                 # Página principal
-├── .htaccess                  # Configuración de Apache
-├── wp-content/
-│   ├── uploads/              # Imágenes y archivos subidos
-│   ├── themes/               # Temas (solo assets)
-│   └── plugins/              # Plugins (solo assets)
-└── wp-includes/              # Archivos CSS/JS de WordPress
+Para que el sitio estático funcione correctamente, debes configurar tu servidor web para servir el directorio `wp-static/` como root del dominio:
+
+#### Apache (.htaccess)
+```apache
+RewriteEngine On
+RewriteCond %{REQUEST_URI} !^/wp-static/
+RewriteRule ^(.*)$ /wp-static/$1 [L]
 ```
 
-## Configuración del servidor
-
-### Apache
-
-El plugin genera automáticamente un archivo `.htaccess` en el directorio `wp-static/` con la configuración básica.
-
-### Nginx
-
-Agrega esta configuración a tu servidor Nginx:
-
+#### Nginx
 ```nginx
-location /wp-static/ {
-    try_files $uri $uri/ /wp-static/index.html;
-    expires 1y;
-    add_header Cache-Control "public, immutable";
+location / {
+    try_files $uri $uri/ /wp-static$uri /wp-static$uri/ /wp-static/index.html;
 }
 ```
 
-## Beneficios
+## Uso
 
-### Rendimiento
-- **Carga más rápida**: Las páginas estáticas se sirven directamente sin procesamiento PHP
-- **Menor uso de CPU**: No requiere ejecución de código dinámico
-- **Mejor cacheo**: Los navegadores pueden cachear las páginas más eficientemente
+### Generación de Páginas Estáticas
 
-### Seguridad
-- **Sin código ejecutable**: No expone archivos PHP en el frontend
-- **Menor superficie de ataque**: Reduce los vectores de ataque
-- **Aislamiento**: El sitio dinámico puede estar en un directorio protegido
+1. **Preparación**: El plugin verifica que el directorio `wp-static/` existe y es escribible
+2. **Limpieza**: Se eliminan todos los archivos y subdirectorios existentes
+3. **Procesamiento**: Cada post y página se procesa individualmente:
+   - **Pendiente**: Elemento en cola para procesamiento
+   - **Procesando**: Elemento siendo generado actualmente
+   - **Completado**: Elemento generado exitosamente
+   - **Error**: Error en la generación del elemento
 
-### SEO
-- **Páginas más rápidas**: Mejora el Core Web Vitals
-- **Mejor indexación**: Los motores de búsqueda pueden indexar más eficientemente
-- **Menor tiempo de carga**: Factor de ranking positivo
+### Estados Visuales
 
-## Limitaciones
+- 🟡 **Pendiente**: Elemento en cola
+- 🔵 **Procesando**: Elemento siendo generado
+- 🟢 **Completado**: Elemento generado exitosamente
+- 🔴 **Error**: Error en la generación
 
-- **Formularios deshabilitados**: Los formularios se deshabilitan automáticamente
-- **Funcionalidad dinámica**: Los scripts de AJAX y formularios se remueven
-- **Actualizaciones manuales**: Las páginas estáticas deben regenerarse cuando se actualiza el contenido
+## Estructura de Archivos Generados
 
-## Solución de problemas
-
-### Error: "Directorio no es escribible"
-
-```bash
-# Dar permisos de escritura al directorio
-chmod 755 wp-static/
-chown www-data:www-data wp-static/
+```
+wp-static/
+├── index.html              # Página principal
+├── .htaccess              # Configuración Apache
+├── post-slug/
+│   └── index.html         # Post individual
+├── page-slug/
+│   └── index.html         # Página individual
+└── assets/                # Recursos estáticos (si se copian)
 ```
 
-### Error: "No se pudo obtener contenido"
+## Solución de Problemas
 
-- Verifica que el sitio sea accesible desde el servidor
-- Revisa los logs de error de WordPress
-- Asegúrate de que `allow_url_fopen` esté habilitado en PHP
+### Permisos del Directorio
 
-### Páginas no se generan correctamente
+Si el plugin no puede escribir en el directorio `wp-static/`, ejecuta estos comandos en tu servidor:
 
-- Verifica que las páginas estén publicadas
-- Revisa los permisos de archivos
-- Comprueba que no haya errores en el tema o plugins
+```bash
+mkdir -p /ruta/a/tu/wordpress/wp-static/
+chmod 755 /ruta/a/tu/wordpress/wp-static/
+chown www-data:www-data /ruta/a/tu/wordpress/wp-static/
+```
+
+*Nota: Reemplaza "www-data" con el usuario de tu servidor web si es diferente.*
+
+### Verificación de Ruta
+
+El plugin usa `get_home_path()` para determinar la ruta correcta del directorio de WordPress. Si tienes problemas con la ruta, verifica:
+
+1. Que WordPress esté correctamente instalado
+2. Que el archivo `wp-config.php` esté en la ubicación correcta
+3. Que las constantes `ABSPATH` y `WP_HOME` estén bien definidas
+
+## Seguridad
+
+- **Sin código ejecutable**: El sitio estático no contiene código PHP
+- **Sin base de datos**: No requiere conexión a base de datos
+- **Archivos estáticos**: Solo HTML, CSS y JavaScript
+- **Mejor rendimiento**: Carga más rápida y menor uso de recursos
+
+## Compatibilidad
+
+- WordPress 5.0+
+- PHP 7.4+
+- Apache/Nginx
+- Múltiples configuraciones de servidor
+
+## Licencia
+
+GPL v2 o posterior
 
 ## Desarrollo
 
@@ -157,10 +168,6 @@ $config = apply_filters('greenborn_processor_config', $config);
 // Modificar el contenido HTML antes de guardar
 $html = apply_filters('greenborn_before_save_html', $html, $url);
 ```
-
-## Licencia
-
-Este plugin está licenciado bajo GPL v3. Ver el archivo [LICENSE](LICENSE) para más detalles.
 
 ## Soporte
 

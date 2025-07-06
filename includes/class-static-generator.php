@@ -14,66 +14,242 @@ class GreenbornStaticGenerator {
     private $processor;
     
     public function __construct() {
-        $this->static_dir = GREENBORN_STATIC_DIR;
-        $this->processor = new GreenbornPageProcessor();
+        // Usar la función en lugar de la constante para asegurar que se obtiene la ruta correcta
+        $this->static_dir = function_exists('greenborn_get_static_dir') ? 
+            greenborn_get_static_dir() : 
+            dirname(ABSPATH) . '/wp-static/';
+        // El processor se inicializará cuando sea necesario
+        $this->processor = null;
     }
     
     /**
-     * Genera todas las páginas estáticas
+     * Obtiene el processor de manera lazy
      */
-    public function generate_all_pages() {
-        $pages_generated = 0;
-        $errors = array();
-        
+    private function get_processor() {
+        if ($this->processor === null) {
+            $this->processor = new GreenbornPageProcessor();
+        }
+        return $this->processor;
+    }
+    
+    /**
+     * Prepara el directorio estático
+     */
+    public function prepare_static_directory() {
         // Verificar que el directorio existe y es escribible
         if (!is_dir($this->static_dir)) {
-            wp_mkdir_p($this->static_dir);
+            $created = @wp_mkdir_p($this->static_dir);
+            if (!$created) {
+                throw new Exception('No se pudo crear el directorio estático: ' . $this->static_dir . 
+                    '. Verifica los permisos del directorio padre.');
+            }
         }
         
+        // Verificar permisos de escritura
         if (!is_writable($this->static_dir)) {
-            throw new Exception('El directorio estático no es escribible: ' . $this->static_dir);
+            $current_perms = substr(sprintf('%o', fileperms($this->static_dir)), -4);
+            $owner = posix_getpwuid(fileowner($this->static_dir))['name'] ?? 'unknown';
+            $current_user = posix_getpwuid(posix_geteuid())['name'] ?? 'unknown';
+            
+            // Intentar cambiar permisos automáticamente
+            $chmod_result = @chmod($this->static_dir, 0755);
+            
+            if (!$chmod_result || !is_writable($this->static_dir)) {
+                throw new Exception(
+                    'El directorio estático no es escribible: ' . $this->static_dir . 
+                    ' (permisos: ' . $current_perms . ', propietario: ' . $owner . ', usuario actual: ' . $current_user . '). ' .
+                    'Ejecuta en el servidor: chmod 755 ' . $this->static_dir . ' && chown www-data:www-data ' . $this->static_dir . 
+                    ' (o el usuario de tu servidor web)'
+                );
+            }
         }
+        
+        // Vaciar el directorio antes de comenzar
+        $this->clean_static_directory();
         
         // Generar página principal
-        try {
-            $this->generate_home_page();
-            $pages_generated++;
-        } catch (Exception $e) {
-            $errors[] = 'Error en página principal: ' . $e->getMessage();
-        }
+        $this->generate_home_page();
         
-        // Generar páginas de posts
-        try {
-            $posts_count = $this->generate_posts_pages();
-            $pages_generated += $posts_count;
-        } catch (Exception $e) {
-            $errors[] = 'Error en páginas de posts: ' . $e->getMessage();
-        }
-        
-        // Generar páginas de páginas
-        try {
-            $pages_count = $this->generate_pages_pages();
-            $pages_generated += $pages_count;
-        } catch (Exception $e) {
-            $errors[] = 'Error en páginas de páginas: ' . $e->getMessage();
-        }
-        
-        // Generar archivos de recursos
-        try {
-            $this->copy_assets();
-        } catch (Exception $e) {
-            $errors[] = 'Error copiando recursos: ' . $e->getMessage();
-        }
-        
-        // Si hay errores, lanzar excepción
-        if (!empty($errors)) {
-            throw new Exception('Errores durante la generación: ' . implode(', ', $errors));
-        }
+        $this->log_message('Directorio estático preparado correctamente');
         
         return array(
-            'pages_generated' => $pages_generated,
-            'errors' => $errors
+            'static_dir' => $this->static_dir,
+            'home_generated' => true
         );
+    }
+    
+    /**
+     * Limpia el directorio estático eliminando todos los archivos y subdirectorios
+     */
+    private function clean_static_directory() {
+        if (!is_dir($this->static_dir)) {
+            return;
+        }
+        
+        $this->log_message('Limpiando directorio estático...');
+        
+        $files = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($this->static_dir, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        
+        foreach ($files as $fileinfo) {
+            $todo = ($fileinfo->isDir() ? 'rmdir' : 'unlink');
+            @$todo($fileinfo->getRealPath());
+        }
+        
+        $this->log_message('Directorio estático limpiado correctamente');
+    }
+    
+    /**
+     * Obtiene la lista de todos los elementos a procesar
+     */
+    public function get_all_items_list() {
+        $items = array();
+        
+        // Obtener posts
+        $posts = get_posts(array(
+            'numberposts' => -1,
+            'post_status' => 'publish',
+            'post_type' => 'post'
+        ));
+        
+        foreach ($posts as $post) {
+            $items[] = array(
+                'id' => $post->ID,
+                'type' => 'post',
+                'title' => $post->post_title,
+                'url' => get_permalink($post->ID)
+            );
+        }
+        
+        // Obtener páginas
+        $pages = get_pages(array(
+            'number' => -1,
+            'post_status' => 'publish',
+            'post_type' => 'page'
+        ));
+        
+        foreach ($pages as $page) {
+            $items[] = array(
+                'id' => $page->ID,
+                'type' => 'page',
+                'title' => $page->post_title,
+                'url' => get_permalink($page->ID)
+            );
+        }
+        
+        $this->log_message('Lista de elementos obtenida: ' . count($items) . ' elementos');
+        
+        return $items;
+    }
+    
+    /**
+     * Procesa un elemento individual
+     */
+    public function process_single_item($item_id, $item_type) {
+        try {
+            if ($item_type === 'post') {
+                $post = get_post($item_id);
+                if (!$post || $post->post_status !== 'publish') {
+                    throw new Exception('Post no encontrado o no publicado');
+                }
+                
+                $url = get_permalink($item_id);
+                $html_content = $this->get_page_content($url);
+                
+                if ($html_content) {
+                    $file_path = $this->get_static_file_path($url);
+                    
+                    // Crear directorio si no existe
+                    $dir = dirname($file_path);
+                    if (!is_dir($dir)) {
+                        wp_mkdir_p($dir);
+                    }
+                    
+                    file_put_contents($file_path, $html_content);
+                    
+                    $this->log_message('Post procesado: ' . $post->post_title . ' (' . $item_id . ')');
+                    
+                    return array(
+                        'success' => true,
+                        'file_path' => $file_path,
+                        'title' => $post->post_title
+                    );
+                } else {
+                    throw new Exception('No se pudo obtener contenido del post');
+                }
+                
+            } elseif ($item_type === 'page') {
+                $page = get_page($item_id);
+                if (!$page || $page->post_status !== 'publish') {
+                    throw new Exception('Página no encontrada o no publicada');
+                }
+                
+                $url = get_permalink($item_id);
+                $html_content = $this->get_page_content($url);
+                
+                if ($html_content) {
+                    $file_path = $this->get_static_file_path($url);
+                    
+                    // Crear directorio si no existe
+                    $dir = dirname($file_path);
+                    if (!is_dir($dir)) {
+                        wp_mkdir_p($dir);
+                    }
+                    
+                    file_put_contents($file_path, $html_content);
+                    
+                    $this->log_message('Página procesada: ' . $page->post_title . ' (' . $item_id . ')');
+                    
+                    return array(
+                        'success' => true,
+                        'file_path' => $file_path,
+                        'title' => $page->post_title
+                    );
+                } else {
+                    throw new Exception('No se pudo obtener contenido de la página');
+                }
+            } else {
+                throw new Exception('Tipo de elemento no válido: ' . $item_type);
+            }
+            
+        } catch (Exception $e) {
+            $this->log_message('Error procesando elemento ' . $item_id . ' (' . $item_type . '): ' . $e->getMessage());
+            throw $e;
+        }
+    }
+    
+    /**
+     * Obtiene el contenido de una página
+     */
+    private function get_page_content($url) {
+        $content = @file_get_contents($url);
+        
+        if ($content === false) {
+            $this->log_message('Error obteniendo contenido de: ' . $url);
+            return false;
+        }
+        
+        return $content;
+    }
+    
+    /**
+     * Obtiene la ruta del archivo estático para una URL
+     */
+    private function get_static_file_path($url) {
+        $parsed_url = parse_url($url);
+        $path = isset($parsed_url['path']) ? $parsed_url['path'] : '/';
+        
+        // Si la ruta termina en /, usar index.html
+        if ($path === '/' || substr($path, -1) === '/') {
+            $file_path = $this->static_dir . $path . 'index.html';
+        } else {
+            // Para URLs como /post-slug, crear /post-slug/index.html
+            $file_path = $this->static_dir . $path . '/index.html';
+        }
+        
+        return $file_path;
     }
     
     /**
@@ -123,120 +299,7 @@ class GreenbornStaticGenerator {
         return $content;
     }
     
-    /**
-     * Renderiza un template por defecto si no existe el template del home
-     */
-    private function render_default_home_template() {
-        ?>
-        <!DOCTYPE html>
-        <html <?php language_attributes(); ?>>
-        <head>
-            <meta charset="<?php bloginfo('charset'); ?>">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title><?php wp_title('|', true, 'right'); ?></title>
-            <meta name="description" content="<?php bloginfo('description'); ?>">
-            <link rel="canonical" href="<?php echo esc_url(home_url('/')); ?>">
-            <?php wp_head(); ?>
-        </head>
-        <body <?php body_class(); ?>>
-            <?php wp_body_open(); ?>
-            
-            <div id="page" class="site">
-                <header id="masthead" class="site-header">
-                    <div class="site-branding">
-                        <h1 class="site-title">
-                            <a href="<?php echo esc_url(home_url('/')); ?>" rel="home">
-                                <?php bloginfo('name'); ?>
-                            </a>
-                        </h1>
-                        <?php if (get_bloginfo('description')) : ?>
-                            <p class="site-description"><?php bloginfo('description'); ?></p>
-                        <?php endif; ?>
-                    </div>
-                    
-                    <nav id="site-navigation" class="main-navigation">
-                        <?php
-                        wp_nav_menu(array(
-                            'theme_location' => 'primary',
-                            'menu_id'        => 'primary-menu',
-                            'fallback_cb'    => false,
-                        ));
-                        ?>
-                    </nav>
-                </header>
-                
-                <div id="content" class="site-content">
-                    <main id="main" class="site-main">
-                        <?php if (have_posts()) : ?>
-                            <div class="posts-container">
-                                <?php while (have_posts()) : the_post(); ?>
-                                    <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
-                                        <header class="entry-header">
-                                            <?php if (has_post_thumbnail()) : ?>
-                                                <div class="post-thumbnail">
-                                                    <a href="<?php the_permalink(); ?>">
-                                                        <?php the_post_thumbnail('medium'); ?>
-                                                    </a>
-                                                </div>
-                                            <?php endif; ?>
-                                            
-                                            <h2 class="entry-title">
-                                                <a href="<?php the_permalink(); ?>" rel="bookmark"><?php the_title(); ?></a>
-                                            </h2>
-                                            
-                                            <div class="entry-meta">
-                                                <span class="posted-on">
-                                                    <?php echo get_the_date(); ?>
-                                                </span>
-                                                <span class="byline">
-                                                    <?php echo get_the_author(); ?>
-                                                </span>
-                                            </div>
-                                        </header>
-                                        
-                                        <div class="entry-content">
-                                            <?php the_excerpt(); ?>
-                                        </div>
-                                        
-                                        <footer class="entry-footer">
-                                            <a href="<?php the_permalink(); ?>" class="read-more">
-                                                <?php _e('Read More', 'greenborn-wp-static-pages'); ?>
-                                            </a>
-                                        </footer>
-                                    </article>
-                                <?php endwhile; ?>
-                            </div>
-                            
-                            <?php
-                            // Navegación de posts
-                            the_posts_pagination(array(
-                                'mid_size'  => 2,
-                                'prev_text' => __('Previous', 'greenborn-wp-static-pages'),
-                                'next_text' => __('Next', 'greenborn-wp-static-pages'),
-                            ));
-                            ?>
-                        <?php else : ?>
-                            <div class="no-posts">
-                                <h2><?php _e('No posts found', 'greenborn-wp-static-pages'); ?></h2>
-                                <p><?php _e('It looks like nothing was found at this location.', 'greenborn-wp-static-pages'); ?></p>
-                            </div>
-                        <?php endif; ?>
-                    </main>
-                </div>
-                
-                <footer id="colophon" class="site-footer">
-                    <div class="footer-content">
-                        <p>&copy; <?php echo date('Y'); ?> <?php bloginfo('name'); ?>. <?php _e('All rights reserved.', 'greenborn-wp-static-pages'); ?></p>
-                        <p><?php _e('Generated by Greenborn WP Static Pages', 'greenborn-wp-static-pages'); ?></p>
-                    </div>
-                </footer>
-            </div>
-            
-            <?php wp_footer(); ?>
-        </body>
-        </html>
-        <?php
-    }
+
     
     /**
      * Genera páginas para todos los posts
@@ -252,10 +315,10 @@ class GreenbornStaticGenerator {
         foreach ($posts as $post) {
             try {
                 $post_url = get_permalink($post->ID);
-                $html_content = $this->processor->get_page_content($post_url);
+                $html_content = $this->get_processor()->get_page_content($post_url);
                 
                 if ($html_content) {
-                    $processed_content = $this->processor->process_content($html_content, $post_url);
+                    $processed_content = $this->get_processor()->process_content($html_content, $post_url);
                     $file_path = $this->get_static_file_path($post_url);
                     
                     // Crear directorio si no existe
@@ -289,10 +352,10 @@ class GreenbornStaticGenerator {
         foreach ($pages as $page) {
             try {
                 $page_url = get_permalink($page->ID);
-                $html_content = $this->processor->get_page_content($page_url);
+                $html_content = $this->get_processor()->get_page_content($page_url);
                 
                 if ($html_content) {
-                    $processed_content = $this->processor->process_content($html_content, $page_url);
+                    $processed_content = $this->get_processor()->process_content($html_content, $page_url);
                     $file_path = $this->get_static_file_path($page_url);
                     
                     // Crear directorio si no existe
@@ -457,29 +520,7 @@ class GreenbornStaticGenerator {
         return true;
     }
     
-    /**
-     * Obtiene la ruta del archivo estático basado en la URL
-     */
-    private function get_static_file_path($url) {
-        $parsed_url = parse_url($url);
-        $path = isset($parsed_url['path']) ? $parsed_url['path'] : '/';
-        
-        // Si es la página principal, usar index.html
-        if ($path == '/' || $path == '') {
-            return $this->static_dir . 'index.html';
-        }
-        
-        // Para otras páginas, crear estructura de directorios
-        $path = trim($path, '/');
-        
-        // Si termina con .html, mantener la extensión
-        if (pathinfo($path, PATHINFO_EXTENSION) == 'html') {
-            return $this->static_dir . $path;
-        }
-        
-        // Si no tiene extensión, agregar .html
-        return $this->static_dir . $path . '.html';
-    }
+
     
     /**
      * Registra mensajes en el log
