@@ -81,13 +81,161 @@ class GreenbornStaticGenerator {
      */
     private function generate_home_page() {
         $home_url = home_url('/');
-        $html_content = $this->processor->get_page_content($home_url);
         
-        if ($html_content) {
-            $processed_content = $this->processor->process_content($html_content, $home_url);
-            $file_path = $this->static_dir . 'index.html';
-            file_put_contents($file_path, $processed_content);
+        try {
+            // Obtener el contenido exacto del home
+            $html_content = $this->get_home_content();
+            
+            if ($html_content) {
+                // Guardar directamente el contenido sin procesar
+                $file_path = $this->static_dir . 'index.html';
+                $result = file_put_contents($file_path, $html_content);
+                
+                if ($result === false) {
+                    throw new Exception('No se pudo escribir el archivo index.html');
+                }
+                
+                $this->log_message('Página principal generada correctamente: ' . $file_path . ' (' . $result . ' bytes)');
+            } else {
+                throw new Exception('No se pudo obtener contenido del home');
+            }
+        } catch (Exception $e) {
+            $this->log_message('Error generando página principal: ' . $e->getMessage());
+            throw $e;
         }
+    }
+    
+    /**
+     * Obtiene el contenido exacto del home
+     */
+    private function get_home_content() {
+        $home_url = home_url('/');
+        
+        // Petición GET simple al home
+        $content = @file_get_contents($home_url);
+        
+        if ($content === false) {
+            $this->log_message('Error obteniendo contenido del home: ' . error_get_last()['message']);
+            return false;
+        }
+        
+        $this->log_message('Contenido del home obtenido: ' . strlen($content) . ' bytes');
+        return $content;
+    }
+    
+    /**
+     * Renderiza un template por defecto si no existe el template del home
+     */
+    private function render_default_home_template() {
+        ?>
+        <!DOCTYPE html>
+        <html <?php language_attributes(); ?>>
+        <head>
+            <meta charset="<?php bloginfo('charset'); ?>">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title><?php wp_title('|', true, 'right'); ?></title>
+            <meta name="description" content="<?php bloginfo('description'); ?>">
+            <link rel="canonical" href="<?php echo esc_url(home_url('/')); ?>">
+            <?php wp_head(); ?>
+        </head>
+        <body <?php body_class(); ?>>
+            <?php wp_body_open(); ?>
+            
+            <div id="page" class="site">
+                <header id="masthead" class="site-header">
+                    <div class="site-branding">
+                        <h1 class="site-title">
+                            <a href="<?php echo esc_url(home_url('/')); ?>" rel="home">
+                                <?php bloginfo('name'); ?>
+                            </a>
+                        </h1>
+                        <?php if (get_bloginfo('description')) : ?>
+                            <p class="site-description"><?php bloginfo('description'); ?></p>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <nav id="site-navigation" class="main-navigation">
+                        <?php
+                        wp_nav_menu(array(
+                            'theme_location' => 'primary',
+                            'menu_id'        => 'primary-menu',
+                            'fallback_cb'    => false,
+                        ));
+                        ?>
+                    </nav>
+                </header>
+                
+                <div id="content" class="site-content">
+                    <main id="main" class="site-main">
+                        <?php if (have_posts()) : ?>
+                            <div class="posts-container">
+                                <?php while (have_posts()) : the_post(); ?>
+                                    <article id="post-<?php the_ID(); ?>" <?php post_class(); ?>>
+                                        <header class="entry-header">
+                                            <?php if (has_post_thumbnail()) : ?>
+                                                <div class="post-thumbnail">
+                                                    <a href="<?php the_permalink(); ?>">
+                                                        <?php the_post_thumbnail('medium'); ?>
+                                                    </a>
+                                                </div>
+                                            <?php endif; ?>
+                                            
+                                            <h2 class="entry-title">
+                                                <a href="<?php the_permalink(); ?>" rel="bookmark"><?php the_title(); ?></a>
+                                            </h2>
+                                            
+                                            <div class="entry-meta">
+                                                <span class="posted-on">
+                                                    <?php echo get_the_date(); ?>
+                                                </span>
+                                                <span class="byline">
+                                                    <?php echo get_the_author(); ?>
+                                                </span>
+                                            </div>
+                                        </header>
+                                        
+                                        <div class="entry-content">
+                                            <?php the_excerpt(); ?>
+                                        </div>
+                                        
+                                        <footer class="entry-footer">
+                                            <a href="<?php the_permalink(); ?>" class="read-more">
+                                                <?php _e('Read More', 'greenborn-wp-static-pages'); ?>
+                                            </a>
+                                        </footer>
+                                    </article>
+                                <?php endwhile; ?>
+                            </div>
+                            
+                            <?php
+                            // Navegación de posts
+                            the_posts_pagination(array(
+                                'mid_size'  => 2,
+                                'prev_text' => __('Previous', 'greenborn-wp-static-pages'),
+                                'next_text' => __('Next', 'greenborn-wp-static-pages'),
+                            ));
+                            ?>
+                        <?php else : ?>
+                            <div class="no-posts">
+                                <h2><?php _e('No posts found', 'greenborn-wp-static-pages'); ?></h2>
+                                <p><?php _e('It looks like nothing was found at this location.', 'greenborn-wp-static-pages'); ?></p>
+                            </div>
+                        <?php endif; ?>
+                    </main>
+                </div>
+                
+                <footer id="colophon" class="site-footer">
+                    <div class="footer-content">
+                        <p>&copy; <?php echo date('Y'); ?> <?php bloginfo('name'); ?>. <?php _e('All rights reserved.', 'greenborn-wp-static-pages'); ?></p>
+                        <p><?php _e('Generated by Greenborn WP Static Pages', 'greenborn-wp-static-pages'); ?></p>
+                    </div>
+                </footer>
+            </div>
+            
+            <?php wp_footer(); ?>
+        </body>
+        </html>
+        <?php
     }
     
     /**
@@ -331,5 +479,16 @@ class GreenbornStaticGenerator {
         
         // Si no tiene extensión, agregar .html
         return $this->static_dir . $path . '.html';
+    }
+    
+    /**
+     * Registra mensajes en el log
+     */
+    private function log_message($message) {
+        $log_file = WP_CONTENT_DIR . '/greenborn-static-pages.log';
+        $timestamp = date('Y-m-d H:i:s');
+        $log_entry = "[{$timestamp}] {$message}" . PHP_EOL;
+        
+        file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
     }
 } 

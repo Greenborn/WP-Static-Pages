@@ -67,17 +67,56 @@ class GreenbornWPStaticPages {
     }
     
     public function add_admin_menu() {
-        add_options_page(
+        // Agregar al menú principal de administración
+        add_menu_page(
             'Greenborn Static Pages',
             'Static Pages',
             'manage_options',
             'greenborn-static-pages',
+            array($this, 'admin_page'),
+            'dashicons-admin-site',
+            30
+        );
+        
+        // Agregar submenús
+        add_submenu_page(
+            'greenborn-static-pages',
+            'Generar Páginas',
+            'Generar Páginas',
+            'manage_options',
+            'greenborn-static-pages',
             array($this, 'admin_page')
+        );
+        
+        add_submenu_page(
+            'greenborn-static-pages',
+            'Configuración',
+            'Configuración',
+            'manage_options',
+            'greenborn-static-config',
+            array($this, 'config_page')
+        );
+        
+        add_submenu_page(
+            'greenborn-static-pages',
+            'Ayuda',
+            'Ayuda',
+            'manage_options',
+            'greenborn-static-help',
+            array($this, 'help_page')
         );
     }
     
     public function admin_page() {
         include GREENBORN_STATIC_PLUGIN_PATH . 'admin/admin-page.php';
+    }
+    
+    public function config_page() {
+        include GREENBORN_STATIC_PLUGIN_PATH . 'admin/config-page.php';
+    }
+    
+    public function help_page() {
+        include GREENBORN_STATIC_PLUGIN_PATH . 'admin/help-page.php';
     }
     
     public function generate_static_pages() {

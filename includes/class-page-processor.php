@@ -55,33 +55,133 @@ class GreenbornPageProcessor {
      * Procesa el contenido HTML para optimizarlo
      */
     public function process_content($html_content, $page_url) {
-        // Convertir a DOM para manipulación
-        $dom = new DOMDocument();
+        // Si el contenido está vacío, retornar
+        if (empty($html_content)) {
+            return false;
+        }
         
-        // Suprimir errores de HTML malformado
-        libxml_use_internal_errors(true);
-        $dom->loadHTML($html_content, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
-        libxml_clear_errors();
-        
-        // Procesar enlaces
-        $this->process_links($dom, $page_url);
-        
-        // Procesar recursos (CSS, JS, imágenes)
-        $this->process_resources($dom, $page_url);
-        
-        // Procesar formularios
-        $this->process_forms($dom);
-        
-        // Procesar scripts
-        $this->process_scripts($dom);
-        
-        // Obtener el HTML procesado
-        $processed_html = $dom->saveHTML();
-        
-        // Optimizaciones adicionales
-        $processed_html = $this->optimize_html($processed_html);
+        // Para el index.html, mantener el contenido lo más fiel posible
+        // Solo procesar URLs y recursos, sin modificar la estructura
+        $processed_html = $this->process_content_faithful($html_content, $page_url);
         
         return $processed_html;
+    }
+    
+    /**
+     * Procesa el contenido manteniendo fidelidad al original
+     */
+    private function process_content_faithful($html_content, $page_url) {
+        // Procesar URLs usando expresiones regulares para mantener la estructura exacta
+        $processed_html = $this->process_urls_regex($html_content, $page_url);
+        
+        // Procesar formularios (solo deshabilitar, no remover)
+        $processed_html = $this->process_forms_regex($processed_html);
+        
+        return $processed_html;
+    }
+    
+    /**
+     * Procesa URLs usando expresiones regulares para mantener la estructura
+     */
+    private function process_urls_regex($html_content, $page_url) {
+        $site_url = $this->site_url;
+        $static_url = $this->static_url;
+        
+        // Procesar enlaces href
+        $html_content = preg_replace_callback(
+            '/href=["\']([^"\']+)["\']/i',
+            function($matches) use ($site_url, $static_url) {
+                $url = $matches[1];
+                return $this->convert_url_to_static($url, $site_url, $static_url);
+            },
+            $html_content
+        );
+        
+        // Procesar src de imágenes
+        $html_content = preg_replace_callback(
+            '/src=["\']([^"\']+)["\']/i',
+            function($matches) use ($site_url, $static_url) {
+                $url = $matches[1];
+                return $this->convert_url_to_static($url, $site_url, $static_url);
+            },
+            $html_content
+        );
+        
+        // Procesar src de scripts
+        $html_content = preg_replace_callback(
+            '/<script[^>]*src=["\']([^"\']+)["\'][^>]*>/i',
+            function($matches) use ($site_url, $static_url) {
+                $url = $matches[1];
+                $converted_url = $this->convert_url_to_static($url, $site_url, $static_url);
+                return str_replace('src="' . $url . '"', 'src="' . $converted_url . '"', $matches[0]);
+            },
+            $html_content
+        );
+        
+        // Procesar href de CSS
+        $html_content = preg_replace_callback(
+            '/<link[^>]*href=["\']([^"\']+)["\'][^>]*>/i',
+            function($matches) use ($site_url, $static_url) {
+                $url = $matches[1];
+                $converted_url = $this->convert_url_to_static($url, $site_url, $static_url);
+                return str_replace('href="' . $url . '"', 'href="' . $converted_url . '"', $matches[0]);
+            },
+            $html_content
+        );
+        
+        // Procesar URLs en atributos data-*
+        $html_content = preg_replace_callback(
+            '/data-[^=]+=["\']([^"\']+)["\']/i',
+            function($matches) use ($site_url, $static_url) {
+                $url = $matches[1];
+                return $this->convert_url_to_static($url, $site_url, $static_url);
+            },
+            $html_content
+        );
+        
+        return $html_content;
+    }
+    
+    /**
+     * Convierte una URL a su versión estática
+     */
+    private function convert_url_to_static($url, $site_url, $static_url) {
+        // Si es una URL absoluta del sitio
+        if (strpos($url, $site_url) === 0) {
+            $relative_path = str_replace($site_url, '', $url);
+            return $static_url . $relative_path;
+        }
+        
+        // Si es una URL relativa que comienza con /
+        if (strpos($url, '/') === 0) {
+            return $static_url . $url;
+        }
+        
+        // Si es una URL relativa sin /
+        if (strpos($url, 'http') !== 0 && strpos($url, '//') !== 0 && strpos($url, '#') !== 0 && strpos($url, 'mailto:') !== 0) {
+            return $static_url . '/' . $url;
+        }
+        
+        // Mantener URL original si no es del sitio
+        return $url;
+    }
+    
+    /**
+     * Procesa formularios usando expresiones regulares
+     */
+    private function process_forms_regex($html_content) {
+        // Agregar mensaje de formulario deshabilitado
+        $html_content = preg_replace_callback(
+            '/<form([^>]*)>/i',
+            function($matches) {
+                $form_attrs = $matches[1];
+                $message = '<div class="form-disabled-message" style="background: #f0f0f0; padding: 10px; margin: 10px 0; border: 1px solid #ccc; color: #666;">Este formulario está deshabilitado en la versión estática.</div>';
+                return '<form' . $form_attrs . ' disabled="disabled" style="opacity: 0.5; pointer-events: none;">' . $message;
+            },
+            $html_content
+        );
+        
+        return $html_content;
     }
     
     /**
@@ -203,11 +303,45 @@ class GreenbornPageProcessor {
     }
     
     /**
+     * Procesa el head y meta tags
+     */
+    private function process_head($dom, $page_url) {
+        $head = $dom->getElementsByTagName('head')->item(0);
+        if (!$head) {
+            return;
+        }
+        
+        // Procesar meta tags
+        $meta_tags = $head->getElementsByTagName('meta');
+        foreach ($meta_tags as $meta) {
+            $content = $meta->getAttribute('content');
+            if ($content && strpos($content, 'http') === 0) {
+                $static_content = $this->convert_to_static_url($content, $page_url);
+                if ($static_content) {
+                    $meta->setAttribute('content', $static_content);
+                }
+            }
+        }
+        
+        // Procesar link tags (favicon, etc.)
+        $link_tags = $head->getElementsByTagName('link');
+        foreach ($link_tags as $link) {
+            $href = $link->getAttribute('href');
+            if ($href && !$this->is_external_url($href)) {
+                $static_href = $this->convert_to_static_url($href, $page_url);
+                if ($static_href) {
+                    $link->setAttribute('href', $static_href);
+                }
+            }
+        }
+    }
+    
+    /**
      * Optimiza el HTML final
      */
     private function optimize_html($html) {
-        // Remover comentarios HTML innecesarios
-        $html = preg_replace('/<!--(?!\s*(?:\[if [^\]]+]|<!|>))(?:(?!-->).)*-->/s', '', $html);
+        // Remover comentarios HTML innecesarios (excepto los importantes)
+        $html = preg_replace('/<!--(?!\s*(?:\[if [^\]]+]|<!|>|wp-|WordPress))(?:(?!-->).)*-->/s', '', $html);
         
         // Remover espacios en blanco extra
         $html = preg_replace('/\s+/', ' ', $html);
@@ -217,6 +351,9 @@ class GreenbornPageProcessor {
         
         // Remover espacios después de apertura de tags
         $html = preg_replace('/>\s+/', '>', $html);
+        
+        // Limpiar el encoding XML que agregamos
+        $html = str_replace('<?xml encoding="UTF-8">', '', $html);
         
         return $html;
     }

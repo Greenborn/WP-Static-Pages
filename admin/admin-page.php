@@ -14,6 +14,7 @@ if (!defined('ABSPATH')) {
         
         <div class="notice notice-info">
             <p><strong>Directorio estático:</strong> <code><?php echo esc_html(GREENBORN_STATIC_DIR); ?></code></p>
+            <p><strong>⚠️ Importante:</strong> Para que el sitio estático funcione correctamente, debes configurar este directorio como root del dominio. Ve a <strong>Static Pages > Configuración</strong> para ver las instrucciones detalladas.</p>
         </div>
         
         <div id="generation-status" style="display: none;">
@@ -47,9 +48,9 @@ if (!defined('ABSPATH')) {
                 <th scope="row">Estado del directorio</th>
                 <td>
                     <?php if (file_exists(GREENBORN_STATIC_DIR)): ?>
-                        <span style="color: green;">✓ Directorio creado</span>
+                        <span class="status-indicator success"></span>✓ Directorio creado
                     <?php else: ?>
-                        <span style="color: red;">✗ Directorio no existe</span>
+                        <span class="status-indicator error"></span>✗ Directorio no existe
                     <?php endif; ?>
                 </td>
             </tr>
@@ -57,13 +58,32 @@ if (!defined('ABSPATH')) {
                 <th scope="row">Permisos de escritura</th>
                 <td>
                     <?php if (is_writable(GREENBORN_STATIC_DIR)): ?>
-                        <span style="color: green;">✓ Escritura permitida</span>
+                        <span class="status-indicator success"></span>✓ Escritura permitida
                     <?php else: ?>
-                        <span style="color: red;">✗ Sin permisos de escritura</span>
+                        <span class="status-indicator error"></span>✗ Sin permisos de escritura
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">Archivo .htaccess</th>
+                <td>
+                    <?php if (file_exists(GREENBORN_STATIC_DIR . '.htaccess')): ?>
+                        <span class="status-indicator success"></span>✓ Archivo creado
+                    <?php else: ?>
+                        <span class="status-indicator error"></span>✗ Archivo no existe
                     <?php endif; ?>
                 </td>
             </tr>
         </table>
+        
+        <p>
+            <a href="<?php echo esc_url(admin_url('admin.php?page=greenborn-static-config')); ?>" class="button">
+                Ver Configuración Completa
+            </a>
+            <a href="<?php echo esc_url(admin_url('admin.php?page=greenborn-static-help')); ?>" class="button">
+                Ver Ayuda
+            </a>
+        </p>
     </div>
 </div>
 

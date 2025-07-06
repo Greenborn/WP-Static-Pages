@@ -35,13 +35,14 @@ Greenborn WP Static Pages es un plugin que genera automáticamente páginas HTML
 
 1. Sube el plugin a la carpeta `/wp-content/plugins/`
 2. Activa el plugin a través del menú 'Plugins' en WordPress
-3. Ve a 'Ajustes > Static Pages' para configurar y generar las páginas estáticas
+3. Ve a 'Static Pages > Generar Páginas' en el menú de administración
+4. Configura el directorio `wp-static/` como root del dominio (ver 'Static Pages > Configuración')
 
 == Frequently Asked Questions ==
 
 = ¿Qué directorio se crea para las páginas estáticas? =
 
-El plugin crea automáticamente el directorio `wp-static/` en la raíz de tu instalación de WordPress.
+El plugin crea automáticamente el directorio `wp-static/` en la raíz de tu instalación de WordPress. Este directorio debe configurarse como root del dominio para que el sitio estático funcione correctamente.
 
 = ¿Se pueden seguir editando las páginas en WordPress? =
 

@@ -5,9 +5,8 @@ Plugin de WordPress que genera automáticamente páginas HTML estáticas para me
 ## Características
 
 - ✅ Generación automática de páginas estáticas HTML
-- ✅ Optimización de recursos (CSS, JS, imágenes)
-- ✅ Conversión automática de URLs a rutas estáticas
-- ✅ Deshabilitación de formularios y funcionalidad dinámica
+- ✅ Copia exacta del contenido del home (petición GET directa)
+- ✅ Sin procesamiento ni optimización del HTML
 - ✅ Copia automática de recursos estáticos
 - ✅ Interfaz de administración simple
 - ✅ Compatibilidad con la última versión de WordPress
@@ -22,10 +21,10 @@ Plugin de WordPress que genera automáticamente páginas HTML estáticas para me
 
 ### Generación de páginas estáticas
 
-1. Ve a **Ajustes > Static Pages** en el panel de administración
+1. Ve a **Static Pages > Generar Páginas** en el menú de administración
 2. Haz clic en **"Generar Páginas Estáticas"**
 3. El plugin generará automáticamente:
-   - Página principal (`index.html`)
+   - Página principal (`index.html`) - copia exacta del home
    - Todas las páginas publicadas
    - Todos los posts publicados
    - Recursos estáticos (CSS, JS, imágenes)
