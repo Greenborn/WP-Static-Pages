@@ -173,6 +173,9 @@ class GreenbornStaticGenerator {
                     // Reemplazar URLs internas de WordPress con URLs estáticas
                     $html_content = $this->replace_internal_urls($html_content);
                     
+                    // Minificar el contenido HTML
+                    $html_content = $this->minify_html($html_content);
+                    
                     $file_path = $this->get_static_file_path($url);
                     
                     // Crear directorio si no existe
@@ -183,7 +186,7 @@ class GreenbornStaticGenerator {
                     
                     file_put_contents($file_path, $html_content);
                     
-                    $this->log_message('Post procesado: ' . $post->post_title . ' (' . $item_id . ') - ' . count($copied_images) . ' imágenes copiadas, URLs de imágenes e internas reemplazadas');
+                    $this->log_message('Post procesado: ' . $post->post_title . ' (' . $item_id . ') - ' . count($copied_images) . ' imágenes copiadas, URLs reemplazadas y HTML minificado');
                     
                     return array(
                         'success' => true,
@@ -214,6 +217,9 @@ class GreenbornStaticGenerator {
                     // Reemplazar URLs internas de WordPress con URLs estáticas
                     $html_content = $this->replace_internal_urls($html_content);
                     
+                    // Minificar el contenido HTML
+                    $html_content = $this->minify_html($html_content);
+                    
                     $file_path = $this->get_static_file_path($url);
                     
                     // Crear directorio si no existe
@@ -224,7 +230,7 @@ class GreenbornStaticGenerator {
                     
                     file_put_contents($file_path, $html_content);
                     
-                    $this->log_message('Página procesada: ' . $page->post_title . ' (' . $item_id . ') - ' . count($copied_images) . ' imágenes copiadas, URLs de imágenes e internas reemplazadas');
+                    $this->log_message('Página procesada: ' . $page->post_title . ' (' . $item_id . ') - ' . count($copied_images) . ' imágenes copiadas, URLs reemplazadas y HTML minificado');
                     
                     return array(
                         'success' => true,
@@ -292,6 +298,9 @@ class GreenbornStaticGenerator {
                 // Reemplazar URLs internas de WordPress con URLs estáticas
                 $html_content = $this->replace_internal_urls($html_content);
                 
+                // Minificar el contenido HTML
+                $html_content = $this->minify_html($html_content);
+                
                 // Guardar el contenido procesado
                 $file_path = $this->static_dir . 'index.html';
                 $result = file_put_contents($file_path, $html_content);
@@ -300,7 +309,7 @@ class GreenbornStaticGenerator {
                     throw new Exception('No se pudo escribir el archivo index.html');
                 }
                 
-                $this->log_message('Página principal generada correctamente: ' . $file_path . ' (' . $result . ' bytes) - URLs internas reemplazadas');
+                $this->log_message('Página principal generada correctamente: ' . $file_path . ' (' . $result . ' bytes) - URLs internas reemplazadas y HTML minificado');
             } else {
                 throw new Exception('No se pudo obtener contenido del home');
             }
@@ -961,5 +970,169 @@ class GreenbornStaticGenerator {
             $clean_path = trim($path, '/');
             return './' . $clean_path . '.html';
         }
+    }
+    
+    /**
+     * Minifica el contenido HTML sin usar librerías externas
+     */
+    private function minify_html($html_content) {
+        if (empty($html_content)) {
+            return $html_content;
+        }
+        
+        $this->log_message('Iniciando minificación HTML...');
+        
+        // Preservar contenido que no debe ser minificado
+        $preserved = array();
+        $preserved_count = 0;
+        
+        // 1. Preservar contenido de <script> tags
+        $html_content = preg_replace_callback(
+            '/<script[^>]*>(.*?)<\/script>/is',
+            function($matches) use (&$preserved, &$preserved_count) {
+                $placeholder = '<!--PRESERVED_' . $preserved_count . '-->';
+                $preserved[$placeholder] = $matches[0];
+                $preserved_count++;
+                return $placeholder;
+            },
+            $html_content
+        );
+        
+        // 2. Preservar contenido de <style> tags
+        $html_content = preg_replace_callback(
+            '/<style[^>]*>(.*?)<\/style>/is',
+            function($matches) use (&$preserved, &$preserved_count) {
+                $placeholder = '<!--PRESERVED_' . $preserved_count . '-->';
+                $preserved[$placeholder] = $matches[0];
+                $preserved_count++;
+                return $placeholder;
+            },
+            $html_content
+        );
+        
+        // 3. Preservar contenido de <pre> tags
+        $html_content = preg_replace_callback(
+            '/<pre[^>]*>(.*?)<\/pre>/is',
+            function($matches) use (&$preserved, &$preserved_count) {
+                $placeholder = '<!--PRESERVED_' . $preserved_count . '-->';
+                $preserved[$placeholder] = $matches[0];
+                $preserved_count++;
+                return $placeholder;
+            },
+            $html_content
+        );
+        
+        // 4. Preservar contenido de <textarea> tags
+        $html_content = preg_replace_callback(
+            '/<textarea[^>]*>(.*?)<\/textarea>/is',
+            function($matches) use (&$preserved, &$preserved_count) {
+                $placeholder = '<!--PRESERVED_' . $preserved_count . '-->';
+                $preserved[$placeholder] = $matches[0];
+                $preserved_count++;
+                return $placeholder;
+            },
+            $html_content
+        );
+        
+        // 5. Preservar comentarios HTML importantes
+        $html_content = preg_replace_callback(
+            '/<!--(?!\[if|<!\[endif|PRESERVED_)(.*?)-->/s',
+            function($matches) use (&$preserved, &$preserved_count) {
+                // Solo preservar comentarios importantes
+                $comment = $matches[1];
+                if (preg_match('/(doctype|html5|shiv|respond|ie|conditional|important)/i', $comment)) {
+                    $placeholder = '<!--PRESERVED_' . $preserved_count . '-->';
+                    $preserved[$placeholder] = $matches[0];
+                    $preserved_count++;
+                    return $placeholder;
+                }
+                return ''; // Eliminar comentarios no importantes
+            },
+            $html_content
+        );
+        
+        // 6. Preservar atributos que contienen espacios importantes
+        $html_content = preg_replace_callback(
+            '/\s+class\s*=\s*["\']([^"\']+)["\']/i',
+            function($matches) {
+                // Preservar espacios en clases CSS
+                return ' class="' . trim($matches[1]) . '"';
+            },
+            $html_content
+        );
+        
+        // 7. Preservar atributos que contienen espacios importantes
+        $html_content = preg_replace_callback(
+            '/\s+style\s*=\s*["\']([^"\']+)["\']/i',
+            function($matches) {
+                // Preservar espacios en estilos inline
+                return ' style="' . trim($matches[1]) . '"';
+            },
+            $html_content
+        );
+        
+        // 8. Preservar atributos data que contienen espacios importantes
+        $html_content = preg_replace_callback(
+            '/\s+data-[^=]+\s*=\s*["\']([^"\']+)["\']/i',
+            function($matches) {
+                // Preservar espacios en atributos data
+                return ' ' . trim($matches[0]);
+            },
+            $html_content
+        );
+        
+        // Ahora proceder con la minificación
+        
+        // 9. Eliminar espacios en blanco innecesarios
+        $html_content = preg_replace('/\s+/', ' ', $html_content);
+        
+        // 10. Eliminar espacios antes de etiquetas de cierre
+        $html_content = preg_replace('/\s+>/', '>', $html_content);
+        
+        // 11. Eliminar espacios después de etiquetas de apertura
+        $html_content = preg_replace('/>\s+/', '>', $html_content);
+        
+        // 12. Eliminar espacios entre etiquetas
+        $html_content = preg_replace('/>\s+</', '><', $html_content);
+        
+        // 13. Eliminar espacios al inicio y final
+        $html_content = trim($html_content);
+        
+        // 14. Eliminar líneas en blanco
+        $html_content = preg_replace('/\n\s*\n/', '', $html_content);
+        
+        // 15. Eliminar tabulaciones
+        $html_content = str_replace("\t", '', $html_content);
+        
+        // 16. Eliminar retornos de carro
+        $html_content = str_replace("\r", '', $html_content);
+        
+        // 17. Eliminar espacios múltiples
+        $html_content = preg_replace('/\s{2,}/', ' ', $html_content);
+        
+        // 18. Optimizar DOCTYPE
+        $html_content = preg_replace('/<!DOCTYPE[^>]*>/i', '<!DOCTYPE html>', $html_content);
+        
+        // 19. Eliminar atributos booleanos innecesarios
+        $html_content = preg_replace('/\s+(checked|disabled|readonly|selected|multiple)\s*=\s*["\']?[^"\']*["\']?/i', ' $1', $html_content);
+        
+        // 20. Eliminar atributos de cierre automático innecesarios
+        $html_content = preg_replace('/\s+\/>/', '>', $html_content);
+        
+        // Restaurar contenido preservado
+        foreach ($preserved as $placeholder => $original_content) {
+            $html_content = str_replace($placeholder, $original_content, $html_content);
+        }
+        
+        // Limpiar espacios finales
+        $html_content = trim($html_content);
+        
+        $original_size = strlen($html_content);
+        $minified_size = strlen($html_content);
+        $compression_ratio = round((($original_size - $minified_size) / $original_size) * 100, 2);
+        
+        $this->log_message("Minificación HTML completada. Tamaño original: {$original_size} bytes, Minificado: {$minified_size} bytes, Compresión: {$compression_ratio}%");
+        
+        return $html_content;
     }
 } 
